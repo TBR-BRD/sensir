@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}SensIR – Übersicht{% endblock %}
+{% block content %}
+<h1>Haushalte</h1>
+{% if not statuses %}
+  <p class="empty">Noch keine Haushalte angelegt. Über <code>POST /api/households</code> anlegen.</p>
+{% endif %}
+<div class="household-grid">
+  {% for s in statuses %}
+  <a class="card status-{{ s.status.value if s.status else 'unknown' }}" href="/households/{{ s.household_id }}">
+    <div class="status-dot"></div>
+    <h2>{{ s.household_name }}</h2>
+    <p>
+      {% if s.status and s.status.value == 'positive' %}Alles in Ordnung
+      {% elif s.status and s.status.value == 'negative' %}Bitte melde dich!
+      {% else %}Noch keine Auswertung{% endif %}
+    </p>
+    <p class="muted">
+      {% if s.last_event_at %}Letzte Aktivität: {{ s.last_event_at.strftime('%d.%m. %H:%M') }}{% else %}Keine Aktivität registriert{% endif %}
+    </p>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

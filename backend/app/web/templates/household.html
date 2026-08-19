@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ household.name }} – SensIR{% endblock %}
+{% block content %}
+<p><a href="/">&larr; Übersicht</a></p>
+<h1>{{ household.name }}</h1>
+
+<section class="status-banner status-{{ status.status.value if status.status else 'unknown' }}">
+  {% if status.status and status.status.value == 'positive' %}Alles in Ordnung
+  {% elif status.status and status.status.value == 'negative' %}Bitte melde dich – keine Aktivität im erwarteten Zeitfenster!
+  {% else %}Noch keine Auswertung für heute{% endif %}
+  <div class="muted">Ereignisse seit Mitternacht: {{ status.events_since_midnight }}</div>
+</section>
+
+<section>
+  <h2>Sensoren</h2>
+  <ul>
+    {% for s in sensors %}<li>{{ s.name }} ({{ s.mqtt_topic }}) {% if not s.is_active %}– inaktiv{% endif %}</li>{% endfor %}
+  </ul>
+</section>
+
+<section>
+  <h2>Aktuelle Beobachtungsfenster</h2>
+  <table>
+    <tr><th>Wochentag</th><th>Von</th><th>Bis</th><th>Min. Aktionen</th><th>Quelle</th></tr>
+    {% for w in windows %}
+    <tr>
+      <td>{{ w.weekday if w.weekday is not none else 'täglich' }}</td>
+      <td>{{ w.start_time }}</td>
+      <td>{{ w.end_time }}</td>
+      <td>{{ w.min_actions }}</td>
+      <td>{{ w.source.value }}{% if w.confidence %} ({{ '%.0f'|format(w.confidence * 100) }}%){% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <form method="post" action="/households/{{ household.id }}/windows">
+    <input type="time" name="start_time" required>
+    <input type="time" name="end_time" required>
+    <input type="number" name="min_actions" value="2" min="1">
+    <select name="weekday">
+      <option value="">täglich</option>
+      <option value="0">Montag</option><option value="1">Dienstag</option><option value="2">Mittwoch</option>
+      <option value="3">Donnerstag</option><option value="4">Freitag</option><option value="5">Samstag</option>
+      <option value="6">Sonntag</option>
+    </select>
+    <button type="submit">Zeitfenster hinzufügen</button>
+  </form>
+</section>
+
+<section>
+  <h2>Kontakte</h2>
+  <ul>
+    {% for c in contacts %}<li>{{ c.name }}{% if c.telegram_chat_id %} – Telegram{% endif %}{% if c.phone %} – {{ c.phone }}{% endif %}</li>{% endfor %}
+  </ul>
+  <form method="post" action="/households/{{ household.id }}/contacts">
+    <input type="text" name="name" placeholder="Name" required>
+    <input type="text" name="telegram_chat_id" placeholder="Telegram chat_id">
+    <input type="text" name="phone" placeholder="Telefonnummer">
+    <button type="submit">Kontakt hinzufügen</button>
+  </form>
+</section>
+
+<section>
+  <h2>Letzte Fernbedienungs-Ereignisse</h2>
+  <table>
+    <tr><th>Zeit</th><th>Protokoll</th><th>Daten</th></tr>
+    {% for e in recent_events %}
+    <tr><td>{{ e.received_at.strftime('%d.%m. %H:%M:%S') }}</td><td>{{ e.protocol }}</td><td>{{ e.data_hex }}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

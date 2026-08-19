@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+*.db
+*.sqlite3
+
+# ML models (trained per household, not source)
+backend/app/ml/models/*.joblib
+
+# Mosquitto runtime data
+mosquitto/data/*
+mosquitto/log/*
+!mosquitto/data/.gitkeep
+!mosquitto/log/.gitkeep
+mosquitto/config/passwd
+
+# Postgres volume (bind-mounted for local dev, if used)
+pgdata/
+
+.DS_Store
+.idea/
+.vscode/
