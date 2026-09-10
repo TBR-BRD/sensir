@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.alerting.engine import active_window
-from app.models import ActivityCheck, Household, IrEvent, Sensor
+from app.models import ActivityCheck, Household, SensorEvent, Sensor
 from app.schemas import HouseholdStatusOut
 
 
@@ -25,15 +25,19 @@ def compute_status(db: Session, household: Household) -> HouseholdStatusOut:
     ).scalar_one_or_none()
 
     last_event_at = db.execute(
-        select(func.max(IrEvent.received_at))
-        .join(Sensor, Sensor.id == IrEvent.sensor_id)
+        select(func.max(SensorEvent.received_at))
+        .join(Sensor, Sensor.id == SensorEvent.sensor_id)
         .where(Sensor.household_id == household.id)
     ).scalar_one()
 
     events_since_midnight = db.execute(
-        select(func.count(IrEvent.id))
-        .join(Sensor, Sensor.id == IrEvent.sensor_id)
-        .where(Sensor.household_id == household.id, IrEvent.received_at >= midnight)
+        select(func.count(SensorEvent.id))
+        .join(Sensor, Sensor.id == SensorEvent.sensor_id)
+        .where(
+            Sensor.household_id == household.id,
+            SensorEvent.received_at >= midnight,
+            SensorEvent.safety.is_(False),
+        )
     ).scalar_one()
 
     window = active_window(db, household.id, now_local)

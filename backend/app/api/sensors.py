@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Sensor
+from app.models import Sensor, SensorKind
 from app.schemas import SensorCreate, SensorOut
 
 router = APIRouter(prefix="/sensors", tags=["sensors"])
@@ -17,12 +17,26 @@ def list_sensors(db: Session = Depends(get_db)):
 
 @router.post("", response_model=SensorOut, status_code=201)
 def create_sensor(payload: SensorCreate, db: Session = Depends(get_db)):
+    if payload.kind == SensorKind.ir_bridge and not payload.mqtt_topic:
+        raise HTTPException(422, "mqtt_topic ist für kind=ir_bridge erforderlich")
+    if payload.kind in (SensorKind.tuya, SensorKind.shelly) and not payload.external_id:
+        raise HTTPException(422, "external_id ist für Cloud-Sensoren erforderlich")
+
     sensor = Sensor(**payload.model_dump())
     db.add(sensor)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(409, "mqtt_topic already registered to a sensor")
+        raise HTTPException(409, "Sensor mit diesem Topic bzw. dieser Geräte-ID existiert bereits")
     db.refresh(sensor)
     return sensor
+
+
+@router.delete("/{sensor_id}", status_code=204)
+def delete_sensor(sensor_id: int, db: Session = Depends(get_db)):
+    sensor = db.get(Sensor, sensor_id)
+    if sensor is None:
+        raise HTTPException(404, "Sensor nicht gefunden")
+    db.delete(sensor)
+    db.commit()

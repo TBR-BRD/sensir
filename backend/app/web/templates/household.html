@@ -14,7 +14,7 @@
 <section>
   <h2>Sensoren</h2>
   <ul>
-    {% for s in sensors %}<li>{{ s.name }} ({{ s.mqtt_topic }}) {% if not s.is_active %}– inaktiv{% endif %}</li>{% endfor %}
+    {% for s in sensors %}<li>{{ s.name }} — {{ s.kind.value }} ({{ s.mqtt_topic or s.external_id }}) {% if not s.is_active %}– inaktiv{% endif %}</li>{% endfor %}
   </ul>
 </section>
 

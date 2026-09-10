@@ -2,7 +2,7 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models import CheckStatus, WindowSource
+from app.models import CheckStatus, SensorKind, WindowSource
 
 
 class HouseholdCreate(BaseModel):
@@ -22,7 +22,10 @@ class HouseholdOut(BaseModel):
 class SensorCreate(BaseModel):
     household_id: int
     name: str
-    mqtt_topic: str
+    kind: SensorKind = SensorKind.ir_bridge
+    mqtt_topic: str | None = None      # nur kind=ir_bridge
+    external_id: str | None = None     # nur kind=tuya|shelly (Cloud-Geräte-ID)
+    config: dict = {}                  # z. B. {"room": "flur", "on_threshold_w": 15}
 
 
 class SensorOut(BaseModel):
@@ -31,9 +34,20 @@ class SensorOut(BaseModel):
     id: int
     household_id: int
     name: str
-    mqtt_topic: str
+    kind: SensorKind
+    mqtt_topic: str | None
+    external_id: str | None
+    config: dict
     is_active: bool
     installed_at: dt.datetime
+    last_seen_at: dt.datetime | None
+
+
+class CloudDeviceOut(BaseModel):
+    external_id: str | None
+    name: str | None = None
+    type: str | None = None
+    online: bool | None = None
 
 
 class ContactCreate(BaseModel):

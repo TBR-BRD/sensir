@@ -28,7 +28,7 @@ from app.models import (
     CheckStatus,
     Contact,
     Household,
-    IrEvent,
+    SensorEvent,
     ObservationWindow,
     Sensor,
 )
@@ -40,10 +40,48 @@ def run_periodic_check() -> None:
     with session_scope() as session:
         for household in session.execute(select(Household)).scalars().all():
             try:
+                _check_safety(session, household)
+            except Exception:
+                logger.exception("household %s: safety check failed", household.id)
+            try:
                 _check_household(session, household)
             except Exception:
                 logger.exception("household %s: activity check failed", household.id)
         session.commit()
+
+
+def _check_safety(session: Session, household: Household) -> None:
+    """Rauch-/Gasmelder: jedes neue Sicherheitsereignis sofort an alle Kontakte.
+
+    Entprellt über AlertLog: dieselbe Meldung wird pro Ereignisminute nur
+    einmal gesendet.
+    """
+    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(
+        minutes=settings.check_interval_minutes + 5
+    )
+    events = session.execute(
+        select(SensorEvent, Sensor)
+        .join(Sensor, Sensor.id == SensorEvent.sensor_id)
+        .where(
+            Sensor.household_id == household.id,
+            SensorEvent.safety.is_(True),
+            SensorEvent.received_at >= since,
+        )
+    ).all()
+    for ev, sensor in events:
+        marker = f"safety:{sensor.id}:{ev.received_at:%Y%m%d%H%M}"
+        seen = session.execute(
+            select(AlertLog.id).where(
+                AlertLog.household_id == household.id, AlertLog.message.like(f"%{marker}%")
+            )
+        ).first()
+        if seen:
+            continue
+        message = (
+            f"⚠️ {ev.kind.upper()}-Melder ausgelöst bei {household.name} "
+            f"({sensor.name}). Bitte sofort kümmern. [{marker}]"
+        )
+        _notify_contacts(session, household, message)
 
 
 def _todays_windows(session: Session, household_id: int, weekday: int) -> list[ObservationWindow]:
@@ -75,9 +113,14 @@ def active_window(session: Session, household_id: int, now_local: dt.datetime) -
 
 def _count_events(session: Session, household_id: int, start: dt.datetime, end: dt.datetime) -> int:
     return session.execute(
-        select(func.count(IrEvent.id))
-        .join(Sensor, Sensor.id == IrEvent.sensor_id)
-        .where(Sensor.household_id == household_id, IrEvent.received_at >= start, IrEvent.received_at < end)
+        select(func.count(SensorEvent.id))
+        .join(Sensor, Sensor.id == SensorEvent.sensor_id)
+        .where(
+            Sensor.household_id == household_id,
+            SensorEvent.received_at >= start,
+            SensorEvent.received_at < end,
+            SensorEvent.safety.is_(False),
+        )
     ).scalar_one()
 
 
@@ -170,15 +213,26 @@ def _record_check(
 
 def _send_alert(session: Session, household: Household, action_count: int, min_actions: int) -> None:
     message = (
-        f"Bitte melde dich bei {household.name}! Keine Fernbedienungsaktivität im "
-        f"erwarteten Zeitfenster ({action_count} von mind. {min_actions} erwarteten Aktionen)."
+        f"Bitte melde dich bei {household.name}! Keine erwartete Aktivität im "
+        f"Zeitfenster ({action_count} von mind. {min_actions} erwarteten Aktionen)."
     )
+    _notify_contacts(session, household, message)
+
+
+def _notify_contacts(session: Session, household: Household, message: str) -> None:
     contacts = session.execute(
         select(Contact).where(Contact.household_id == household.id, Contact.is_active.is_(True))
     ).scalars().all()
     if not contacts:
-        logger.warning("household %s: negative check but no active contacts configured", household.id)
+        logger.warning("household %s: Alarm, aber keine aktiven Kontakte", household.id)
         return
     for contact in contacts:
-        success = send_telegram_message(contact.telegram_chat_id, message) if contact.telegram_chat_id else False
-        session.add(AlertLog(household_id=household.id, contact_id=contact.id, message=message, success=success))
+        success = (
+            send_telegram_message(contact.telegram_chat_id, message)
+            if contact.telegram_chat_id
+            else False
+        )
+        session.add(
+            AlertLog(household_id=household.id, contact_id=contact.id, message=message, success=success)
+        )
+    session.flush()

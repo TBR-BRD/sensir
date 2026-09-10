@@ -4,8 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app import mqtt_listener, scheduler
+from app import scheduler
 from app.api import router as api_router
+from app.ingest import registry
 from app.web.routes import router as web_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -13,11 +14,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    mqtt_listener.start()
+    registry.start_all()
     scheduler.start()
     yield
     scheduler.stop()
-    mqtt_listener.stop()
+    registry.stop_all()
 
 
 app = FastAPI(title="SensIR", lifespan=lifespan)

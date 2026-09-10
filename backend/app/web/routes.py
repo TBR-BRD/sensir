@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Contact, Household, IrEvent, ObservationWindow, Sensor, WindowSource
+from app.models import Contact, Household, SensorEvent, ObservationWindow, Sensor, WindowSource
 from app.status_service import compute_status
 
 router = APIRouter(include_in_schema=False)
@@ -29,10 +29,10 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
     contacts = db.execute(select(Contact).where(Contact.household_id == household_id)).scalars().all()
     windows = db.execute(select(ObservationWindow).where(ObservationWindow.household_id == household_id)).scalars().all()
     recent_events = db.execute(
-        select(IrEvent)
-        .join(Sensor, Sensor.id == IrEvent.sensor_id)
+        select(SensorEvent)
+        .join(Sensor, Sensor.id == SensorEvent.sensor_id)
         .where(Sensor.household_id == household_id)
-        .order_by(IrEvent.received_at.desc())
+        .order_by(SensorEvent.received_at.desc())
         .limit(20)
     ).scalars().all()
     return templates.TemplateResponse(

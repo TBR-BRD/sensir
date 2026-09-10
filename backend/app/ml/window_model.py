@@ -26,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import Household, IrEvent, Sensor
+from app.models import Household, SensorEvent, Sensor
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +47,9 @@ def _model_path(household_id: int) -> Path:
 def _event_minutes_of_day(session: Session, household_id: int) -> tuple[np.ndarray, dt.datetime | None, dt.datetime | None]:
     rows = (
         session.execute(
-            select(IrEvent.received_at)
-            .join(Sensor, Sensor.id == IrEvent.sensor_id)
-            .where(Sensor.household_id == household_id)
+            select(SensorEvent.received_at)
+            .join(Sensor, Sensor.id == SensorEvent.sensor_id)
+            .where(Sensor.household_id == household_id, SensorEvent.safety.is_(False))
         )
         .scalars()
         .all()
