@@ -150,8 +150,14 @@ def list_cloud_devices() -> list[dict]:
     last_id = ""
     page_size = 20  # groessere page_size liefert "code 40000904 param size too much"
     for _ in range(50):  # hartes Limit gegen Endlosschleife bei unerwarteter Paginierung
-        params = f"?page_size={page_size}" + (f"&last_id={last_id}" if last_id else "")
-        resp = api.get(f"/v2.0/cloud/thing/device{params}")
+        # WICHTIG: Query-Parameter müssen über das params-Dict von .get()
+        # übergeben werden, nicht manuell an den Pfad angehängt - sonst
+        # stimmt bei >1 Parametern Tuyas Signaturprüfung nicht mehr
+        # ("code 1004 sign invalid", live beobachtet beim zweiten Poll).
+        params: dict[str, str] = {"page_size": str(page_size)}
+        if last_id:
+            params["last_id"] = last_id
+        resp = api.get("/v2.0/cloud/thing/device", params)
         if not resp.get("success"):
             break
         page = resp.get("result", [])
