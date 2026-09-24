@@ -38,15 +38,17 @@
     {% endfor %}
   </table>
   <form method="post" action="/households/{{ household.id }}/windows">
-    <input type="time" name="start_time" required>
-    <input type="time" name="end_time" required>
-    <input type="number" name="min_actions" value="2" min="1">
-    <select name="weekday">
-      <option value="">täglich</option>
-      <option value="0">Montag</option><option value="1">Dienstag</option><option value="2">Mittwoch</option>
-      <option value="3">Donnerstag</option><option value="4">Freitag</option><option value="5">Samstag</option>
-      <option value="6">Sonntag</option>
-    </select>
+    <label>Wochentag
+      <select name="weekday">
+        <option value="">täglich</option>
+        <option value="0">Montag</option><option value="1">Dienstag</option><option value="2">Mittwoch</option>
+        <option value="3">Donnerstag</option><option value="4">Freitag</option><option value="5">Samstag</option>
+        <option value="6">Sonntag</option>
+      </select>
+    </label>
+    <label>Von <input type="time" name="start_time" required></label>
+    <label>Bis <input type="time" name="end_time" required></label>
+    <label>Min. Aktionen <input type="number" name="min_actions" value="2" min="1"></label>
     <button type="submit">Zeitfenster hinzufügen</button>
   </form>
 </section>

@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Dashboard: Auto-Refresh, Zeitfenster-Formular korrigiert
+
+- **Auto-Refresh**: alle Seiten laden sich per `<meta http-equiv="refresh">`
+  alle 60s automatisch neu (`base.html`, per Page mit `{% block refresh %}`
+  überschreibbar/abschaltbar) — vorher musste man manuell neu laden, um
+  neue Ereignisse/Alarme zu sehen.
+- **Fix Zeitfenster-Formular verschoben**: die "Zeitfenster hinzufügen"-
+  Formularfelder standen in anderer Reihenfolge als die Tabellenspalten
+  darüber (z. B. Wochentag-Auswahl unter "Min. Aktionen") und sahen dadurch
+  verrutscht aus, obwohl Formular und Tabelle technisch unabhängig sind.
+  Felder umsortiert (Wochentag/Von/Bis/Min. Aktionen) und mit `<label>`
+  versehen, damit es auch ohne zufällige Spalten-Ausrichtung eindeutig ist.
+
 ### Fix: Zeitzone bei Ereignis-Anzeige + Sensor-Name in der Tabelle
 
 `SensorEvent.received_at` liegt in der DB als UTC, wurde im Dashboard aber
