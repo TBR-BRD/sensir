@@ -35,6 +35,14 @@ class SensorCreate(BaseModel):
     config: dict = {}                  # z. B. {"room": "flur", "on_threshold_w": 15}
 
 
+class SensorUpdate(BaseModel):
+    name: str | None = None
+    config: dict | None = None
+    is_active: bool | None = None
+    # mqtt_topic/external_id/kind bewusst nicht änderbar - das ist die
+    # Geräte-Identität, für einen Gerätetausch lieber löschen+neu anlegen.
+
+
 class SensorOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

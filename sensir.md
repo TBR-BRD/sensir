@@ -136,6 +136,18 @@ gemeinsame Aktivitäts-Zeitreihe.
 Eindeutigkeit: `(kind, external_id)` ist unique (`uq_sensor_kind_external`),
 `mqtt_topic` weiterhin einzeln unique.
 
+**`config["emergency"] = true`** — markiert einen Sensor (typischerweise
+einen Taster) als Notrufknopf: **jedes** seiner Ereignisse gilt als
+`safety=True`, unabhängig vom erkannten `kind`. Löst — anders als
+Rauch/Gas, die ebenfalls `safety=True` sind — **sofort** beim Empfang einen
+Alarm aus (`app.alerting.engine.send_immediate_safety_alert`, aufgerufen
+direkt aus `app.ingest.sink.record_events`), statt bis zum nächsten
+periodischen Scheduler-Tick zu warten — für einen Notrufknopf wäre eine
+Verzögerung von bis zu `CHECK_INTERVAL_MINUTES` inakzeptabel. Der
+periodische `_check_safety()`-Lauf bleibt als Fallback-Sicherheitsnetz
+bestehen (z. B. falls der Sofort-Alarm wegen eines Backend-Neustarts
+mittendrin durchrutscht), entprellt über denselben `AlertLog`-Marker.
+
 ### `SensorEvent` (ex-`IrEvent`)
 
 | Feld | Bedeutung |
@@ -334,7 +346,7 @@ ausgeschlossen und stattdessen sofort alarmiert.
 | `/api/households` | GET/POST | Haushalte |
 | `/api/households/{id}` | PATCH/DELETE | Haushalt ändern (u. a. `is_active`) / löschen (Cascade auf Sensoren, Events, Kontakte, Fenster) |
 | `/api/sensors` | GET/POST | Sensoren; POST braucht `kind` + (`mqtt_topic` **oder** `external_id`) |
-| `/api/sensors/{id}` | DELETE | Sensor löschen |
+| `/api/sensors/{id}` | PATCH/DELETE | Sensor ändern (`name`, `config`, `is_active` - **nicht** `kind`/`mqtt_topic`/`external_id`, dafür löschen+neu anlegen) / löschen |
 | `/api/sources/tuya/devices` | GET | Tuya-Cloud-Geräte des verknüpften Kontos |
 | `/api/sources/shelly/devices` | GET | Shelly-Cloud-Geräte des Kontos |
 | `/api/households/{id}/contacts` | GET/POST | Kontakte (Liste sortiert nach `priority`) |

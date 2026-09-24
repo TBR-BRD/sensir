@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Sensor, SensorKind
-from app.schemas import SensorCreate, SensorOut
+from app.schemas import SensorCreate, SensorOut, SensorUpdate
 
 router = APIRouter(prefix="/sensors", tags=["sensors"])
 
@@ -29,6 +29,18 @@ def create_sensor(payload: SensorCreate, db: Session = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, "Sensor mit diesem Topic bzw. dieser Geräte-ID existiert bereits")
+    db.refresh(sensor)
+    return sensor
+
+
+@router.patch("/{sensor_id}", response_model=SensorOut)
+def update_sensor(sensor_id: int, payload: SensorUpdate, db: Session = Depends(get_db)):
+    sensor = db.get(Sensor, sensor_id)
+    if sensor is None:
+        raise HTTPException(404, "Sensor nicht gefunden")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(sensor, field, value)
+    db.commit()
     db.refresh(sensor)
     return sensor
 

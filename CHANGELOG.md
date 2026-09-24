@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Notrufknopf: sofortiger Alarm
+
+- Neues `Sensor.config["emergency"] = true` — jedes Ereignis dieses Sensors
+  gilt als `safety=True` (wie Rauch/Gas), unabhängig vom erkannten `kind`.
+- Sicherheitsalarme (Rauch/Gas, jetzt auch Notruftaster) lösen jetzt sofort
+  beim Empfang aus (`send_immediate_safety_alert`, aus
+  `app.ingest.sink.record_events` aufgerufen), statt bis zu
+  `CHECK_INTERVAL_MINUTES` auf den nächsten periodischen Scheduler-Tick zu
+  warten. Der periodische Check bleibt als Fallback-Sicherheitsnetz.
+- `PATCH /api/sensors/{id}` ergänzt (fehlte bisher — nur GET/POST/DELETE
+  waren da), zum Ändern von `name`/`config`/`is_active` ohne den Sensor
+  löschen und neu anlegen zu müssen.
+
 ### MQTT-Broker: extern statt selbstgehostet
 
 Die IR-Bridge-Quelle braucht einen Broker, den sowohl die Tasmota-Geräte in
