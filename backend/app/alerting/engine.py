@@ -53,11 +53,64 @@ def run_periodic_check() -> None:
         session.commit()
 
 
-def _check_safety(session: Session, household: Household) -> None:
-    """Rauch-/Gasmelder: jedes neue Sicherheitsereignis sofort an alle Kontakte.
+def _safety_alert_text(household: Household, sensor: Sensor, kind: str, received_at: dt.datetime) -> tuple[str, str]:
+    """Baut Alarmtext + Entprellungs-Marker für ein safety=True-Ereignis.
 
-    Entprellt über AlertLog: dieselbe Meldung wird pro Ereignisminute nur
-    einmal gesendet.
+    Geteilt zwischen dem periodischen Fallback-Check (`_check_safety`) und
+    dem Sofort-Pfad (`send_immediate_safety_alert`), damit beide dieselbe
+    Nachricht/denselben Marker erzeugen und sich nicht doppeln.
+    """
+    marker = f"safety:{sensor.id}:{received_at:%Y%m%d%H%M}"
+    if (sensor.config or {}).get("emergency"):
+        label = "🆘 Notrufknopf gedrückt"
+    else:
+        label = f"⚠️ {kind.upper()}-Melder ausgelöst"
+    message = f"{label} bei {household.name} ({sensor.name}). Bitte sofort kümmern. [{marker}]"
+    return message, marker
+
+
+def _already_alerted(session: Session, household_id: int, marker: str) -> bool:
+    return (
+        session.execute(
+            select(AlertLog.id).where(
+                AlertLog.household_id == household_id, AlertLog.message.like(f"%{marker}%")
+            )
+        ).first()
+        is not None
+    )
+
+
+def send_immediate_safety_alert(sensor_id: int, kind: str, received_at: dt.datetime) -> None:
+    """Alarmiert sofort beim Empfang eines safety=True-Ereignisses (Rauch/Gas
+    oder ein per `Sensor.config["emergency"]` markierter Notrufknopf/-taster),
+    statt bis zum nächsten periodischen Scheduler-Tick zu warten - wird direkt
+    aus `app.ingest.sink.record_events` aufgerufen. Nutzt denselben
+    AlertLog-Marker wie `_check_safety`, damit der periodische Fallback-Lauf
+    (falls dieser Aufruf z. B. wegen eines DB-Fehlers durchrutscht) dieselbe
+    Meldung nicht doppelt verschickt.
+    """
+    with session_scope() as session:
+        sensor = session.get(Sensor, sensor_id)
+        if sensor is None:
+            return
+        household = session.get(Household, sensor.household_id)
+        if household is None or not household.is_active:
+            return
+        message, marker = _safety_alert_text(household, sensor, kind, received_at)
+        if _already_alerted(session, household.id, marker):
+            return
+        _notify_contacts(session, household, message)
+        session.commit()
+
+
+def _check_safety(session: Session, household: Household) -> None:
+    """Fallback: Rauch-/Gasmelder (und Notruf-Sensoren) nochmal periodisch
+    prüfen, falls `send_immediate_safety_alert` beim Empfang des Ereignisses
+    aus irgendeinem Grund nicht durchkam (z. B. Backend-Neustart mittendrin).
+    Der Normalfall ist der Sofort-Pfad - dieser Check ist das Sicherheitsnetz.
+
+    Entprellt über AlertLog (gleicher Marker wie beim Sofort-Pfad): dieselbe
+    Meldung wird pro Ereignisminute nur einmal gesendet.
     """
     since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(
         minutes=settings.check_interval_minutes + 5
@@ -72,18 +125,9 @@ def _check_safety(session: Session, household: Household) -> None:
         )
     ).all()
     for ev, sensor in events:
-        marker = f"safety:{sensor.id}:{ev.received_at:%Y%m%d%H%M}"
-        seen = session.execute(
-            select(AlertLog.id).where(
-                AlertLog.household_id == household.id, AlertLog.message.like(f"%{marker}%")
-            )
-        ).first()
-        if seen:
+        message, marker = _safety_alert_text(household, sensor, ev.kind, ev.received_at)
+        if _already_alerted(session, household.id, marker):
             continue
-        message = (
-            f"⚠️ {ev.kind.upper()}-Melder ausgelöst bei {household.name} "
-            f"({sensor.name}). Bitte sofort kümmern. [{marker}]"
-        )
         _notify_contacts(session, household, message)
 
 
