@@ -17,8 +17,8 @@ mosquitto/log/*
 !mosquitto/log/.gitkeep
 mosquitto/config/passwd
 
-# Postgres volume (bind-mounted for local dev, if used)
-pgdata/
+# Bind-mounted runtime data (Postgres, ML-Modelle) - siehe docker-compose.yml
+data/
 
 .DS_Store
 .idea/

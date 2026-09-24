@@ -45,6 +45,7 @@ def compute_status(db: Session, household: Household) -> HouseholdStatusOut:
     return HouseholdStatusOut(
         household_id=household.id,
         household_name=household.name,
+        household_active=household.is_active,
         status=last_check.status if last_check else None,
         last_event_at=last_event_at,
         events_since_midnight=events_since_midnight,

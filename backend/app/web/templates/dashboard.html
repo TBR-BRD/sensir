@@ -7,11 +7,12 @@
 {% endif %}
 <div class="household-grid">
   {% for s in statuses %}
-  <a class="card status-{{ s.status.value if s.status else 'unknown' }}" href="/households/{{ s.household_id }}">
+  <a class="card {% if not s.household_active %}status-paused{% else %}status-{{ s.status.value if s.status else 'unknown' }}{% endif %}" href="/households/{{ s.household_id }}">
     <div class="status-dot"></div>
-    <h2>{{ s.household_name }}</h2>
+    <h2>{{ s.household_name }}{% if not s.household_active %} <span class="muted">(pausiert)</span>{% endif %}</h2>
     <p>
-      {% if s.status and s.status.value == 'positive' %}Alles in Ordnung
+      {% if not s.household_active %}Überwachung pausiert
+      {% elif s.status and s.status.value == 'positive' %}Alles in Ordnung
       {% elif s.status and s.status.value == 'negative' %}Bitte melde dich!
       {% else %}Noch keine Auswertung{% endif %}
     </p>

@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -41,10 +41,12 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ml_models:/app/app/ml/models
+      - ./data/ml_models:/app/app/ml/models
     command: >
       sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
-volumes:
-  pgdata:
-  ml_models:
+# Bewusst Bind-Mounts statt benannter Docker-Volumes (./data/…, ./mosquitto/…):
+# alles liegt sichtbar unter dem Projektordner, damit eine Synology-Sicherung
+# (Hyper Backup / Snapshot Replication) den ganzen Ordner in einem Stück
+# sichern kann, statt in die interne Docker-Volume-Verwaltung greifen zu
+# müssen. Siehe sensir.md Abschnitt 8 für die empfohlene Ordnerstruktur.

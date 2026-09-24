@@ -1,6 +1,6 @@
 # SensIR — Gesamtübersicht
 
-Stand: 2026-09-10 (Commit `63630e6`). Diese Datei fasst alles zusammen, was
+Stand: 2026-09-24. Diese Datei fasst alles zusammen, was
 über README + CHANGELOG verteilt ist: Konzept, Architektur, Datenmodell, alle
 drei Sensor-Quellen mit Setup, API-Referenz, Deployment, offene Punkte.
 
@@ -71,13 +71,54 @@ gemeinsame Aktivitäts-Zeitreihe.
 
 | Tabelle | Zweck |
 |---|---|
-| `households` | ein beobachteter Haushalt (Name, Zeitzone) |
+| `households` | ein beobachteter Haushalt (Name, Zeitzone, `is_active`) |
 | `sensors` | ein Gerät, einer Quelle zugeordnet (`kind`) |
 | `sensor_events` | kanonisches Aktivitätsereignis (ex-`IrEvent`) |
 | `observation_windows` | Zeitfenster mit Mindest-Aktionszahl, manuell oder `source=ml` |
 | `activity_checks` | Ergebnis der Auswertung eines Zeitfensters für einen Tag |
-| `contacts` | Angehörige mit `telegram_chat_id` |
-| `alert_log` | jede gesendete Alarm-Nachricht |
+| `contacts` | Angehörige mit `telegram_chat_id`, `priority` |
+| `alert_log` | jede gesendete Alarm-Nachricht (auch Testnachrichten) |
+
+### `Household` — Multi-Haushalt & Pause (`is_active`)
+
+- Alle Haushalte teilen sich **ein** Tuya- und **ein** Shelly-Cloud-Konto
+  (`TUYA_APP_ACCOUNT_UID` / `SHELLY_AUTH_KEY` sind global in `.env`,
+  nicht pro Haushalt) — Zuordnung zum Haushalt passiert allein über die
+  `Sensor.household_id`-Verknüpfung beim Anlegen des Sensors. Eine
+  Erweiterung auf mehrere Cloud-Konten (z. B. je Elternhaus ein eigenes
+  Tuya-Konto) ist bewusst **nicht** gebaut — aktuell reicht ein Konto, das
+  alle beobachteten Wohnungen verknüpft hat.
+- `Household.is_active` (Migration `0003_household_active`, Default `true`)
+  pausiert einen Haushalt **ohne** ihn zu löschen: bei `is_active=False`
+  überspringt `run_periodic_check()` (`alerting/engine.py`) den Haushalt
+  komplett (keine Zeitfenster-Auswertung, keine Alarme — auch keine
+  Sofort-Alarme bei Rauch/Gas, siehe `_check_safety` im selben Loop) und
+  `train_all_household_models()` (`ml/window_model.py`) trainiert kein
+  Modell für ihn. Events werden weiter aufgezeichnet (Sensoren senden
+  unverändert), nur die Auswertung ruht — gedacht für z. B. einen
+  Klinikaufenthalt der beobachteten Person.
+- Umschalten: Button "Überwachung pausieren"/"fortsetzen" im
+  Haushalts-Dashboard (`POST /households/{id}/toggle-active`), oder
+  `PATCH /api/households/{id}` mit `{"is_active": false}`.
+- Dashboard-Karte zeigt pausierte Haushalte gedimmt mit grauem Rand
+  (`.status-paused` in `style.css`) statt der Ampelfarbe.
+
+### `Contact.priority`
+
+- Niedrigere Zahl = wird zuerst benachrichtigt, `0` = primärer Kontakt.
+  Kontaktlisten (API und Dashboard) sind nach `priority` sortiert.
+- **Wichtig:** aktuell nur eine Sortierreihenfolge, **keine Eskalationsstufen**
+  — bei einem Alarm werden weiterhin alle aktiven Kontakte gleichzeitig
+  benachrichtigt (`_notify_contacts()` in `alerting/engine.py`), niemand wird
+  übersprungen oder verzögert. `priority` ist Vorarbeit für eine spätere
+  Eskalation (z. B. "erst Tochter, nach 10 Min ohne Reaktion auch Nachbarin"),
+  die noch nicht implementiert ist.
+- Testnachricht pro Kontakt: Button "Testnachricht senden" im
+  Haushalts-Dashboard (`POST /households/{id}/contacts/{id}/test`) bzw.
+  `POST /api/households/{id}/contacts/{id}/test` — schickt sofort eine
+  Telegram-Nachricht an genau diesen Kontakt und protokolliert sie in
+  `alert_log`, unabhängig von Zeitfenstern/Aktivität. Nützlich beim
+  Einrichten, um die `telegram_chat_id` zu verifizieren.
 
 ### `Sensor`
 
@@ -275,15 +316,21 @@ ausgeschlossen und stattdessen sofort alarmiert.
 | Endpunkt | Methode | Zweck |
 |---|---|---|
 | `/api/households` | GET/POST | Haushalte |
+| `/api/households/{id}` | PATCH/DELETE | Haushalt ändern (u. a. `is_active`) / löschen (Cascade auf Sensoren, Events, Kontakte, Fenster) |
 | `/api/sensors` | GET/POST | Sensoren; POST braucht `kind` + (`mqtt_topic` **oder** `external_id`) |
 | `/api/sensors/{id}` | DELETE | Sensor löschen |
 | `/api/sources/tuya/devices` | GET | Tuya-Cloud-Geräte des verknüpften Kontos |
 | `/api/sources/shelly/devices` | GET | Shelly-Cloud-Geräte des Kontos |
-| `/api/households/{id}/contacts` | GET/POST | Kontakte |
+| `/api/households/{id}/contacts` | GET/POST | Kontakte (Liste sortiert nach `priority`) |
+| `/api/households/{id}/contacts/{id}` | PATCH/DELETE | Kontakt ändern (Name, `priority`, `telegram_chat_id`, `is_active`, …) / löschen |
+| `/api/households/{id}/contacts/{id}/test` | POST | sofortige Telegram-Testnachricht an diesen Kontakt, protokolliert in `alert_log` |
 | `/api/households/{id}/windows` | GET/POST | Beobachtungsfenster |
-| `/api/households/{id}/status` | GET | aktueller Status (letztes Ereignis, Tagesereignisse, aktives Fenster, letzter Check) |
+| `/api/households/{id}/windows/{id}` | PATCH/DELETE | Fenster ändern (setzt `source=manual`) / löschen |
+| `/api/households/{id}/status` | GET | aktueller Status (letztes Ereignis, Tagesereignisse, aktives Fenster, letzter Check, `household_active`) |
 
-Dashboard (kein API, HTML): `/` (Ampel-Übersicht), `/households/{id}` (Detail).
+Dashboard (kein API, HTML): `/` (Ampel-Übersicht, pausierte Haushalte gedimmt),
+`/households/{id}` (Detail — Pause-Toggle, Kontakt-Testnachricht,
+Priorität-Feld im Kontaktformular).
 
 ## 7. Konfiguration (`.env`, siehe `.env.example`)
 
@@ -343,8 +390,56 @@ docker compose up --build
 - Migrationen laufen beim Start automatisch (`alembic upgrade head` im
   Backend-Container-Command).
 - Dashboard: `http://<synology>:8000/`, API-Doku: `http://<synology>:8000/docs`.
-- Persistenz: `pgdata`-Volume (Postgres), `ml_models`-Volume
-  (`app/ml/models/*.joblib`).
+
+### 8.1 Volume-/Pfad-Planung auf der Synology
+
+Bewusst **Bind-Mounts statt benannter Docker-Volumes** (Umstellung von
+`pgdata:`/`ml_models:`-Named-Volumes) — alle persistenten Daten liegen
+sichtbar unter dem Projektordner, statt in Docker's interner
+`/var/lib/docker/volumes/…`-Verwaltung. Grund: Synology **Hyper Backup**
+und **Snapshot Replication** sichern Ordner/Freigaben, nicht einzelne
+Docker-Volumes — mit Bind-Mounts reicht es, den kompletten Projektordner
+in den Backup-Plan aufzunehmen.
+
+**Empfohlene Struktur** (Projektordner auf einem Datenverzeichnis-Volume,
+z. B. `/volume1/docker/sensir`):
+
+```
+/volume1/docker/sensir/          ← Repo-Checkout, in Hyper Backup aufnehmen
+├── .env                         ← Zugangsdaten, NICHT in Git
+├── docker-compose.yml
+├── mosquitto/
+│   ├── config/                  ← statisch, aus Git
+│   └── data/, log/              ← Broker-Laufzeitdaten (klein, unkritisch)
+└── data/                        ← s. .gitignore, alles hier ist Laufzeitdaten
+    ├── postgres/                ← Postgres-Datenverzeichnis (die eigentlichen
+    │                              Events/Historie aller Haushalte — wichtigster
+    │                              Ordner fürs Backup)
+    └── ml_models/                ← *.joblib, ein File pro Haushalt, aus den
+                                     Events reproduzierbar (nice-to-have-Backup,
+                                     kein Muss — trainiert bei Bedarf neu)
+```
+
+- **Backup-Priorität:** `data/postgres/` ist die einzige Quelle der Wahrheit
+  (Events, Haushalte, Kontakte, Konfiguration) — unbedingt in den Hyper-Backup-
+  Plan aufnehmen. `data/ml_models/` kann fehlen, ohne dass Daten verloren
+  gehen (nächstes nächtliches Training baut es neu auf, sobald wieder genug
+  Events da sind).
+- **Volume-Wahl auf der DS720+:** Projektordner auf das Daten-Volume legen
+  (nicht das System-Volume, falls die DS720+ mit SSD-Cache/getrenntem System-
+  Volume läuft) — bei Standard-Konfiguration mit einem Volume ist das ohnehin
+  identisch. Freigabe `docker` (oder `docker/sensir` als Unterordner) reicht
+  als Snapshot-Replication-Ziel.
+- **Mehrere Haushalte teilen sich diesen einen Stack**: es gibt keine
+  Pro-Haushalt-Ordnertrennung — alle Haushalte liegen als Zeilen in
+  derselben Postgres-Instanz (`households`-Tabelle), das hält die
+  Volume-Planung einfach (ein Datenbank-Ordner, ein Backup-Ziel, egal wie
+  viele Haushalte/Kontakte über das Dashboard verwaltet werden).
+- **Migration vom alten Named-Volume-Stand:** falls bereits mit
+  `pgdata`/`ml_models`-Named-Volumes deployed, vor dem Update einmalig
+  `docker run --rm -v sensir_pgdata:/from -v $(pwd)/data/postgres:/to alpine cp -a /from/. /to/`
+  (analog für `ml_models`), dann `docker compose up -d` mit dem neuen
+  `docker-compose.yml`.
 
 ### Entwicklung ohne Docker
 
@@ -381,7 +476,7 @@ sensir/
 ├── scripts/create_mqtt_user.sh
 └── backend/
     ├── requirements.txt
-    ├── alembic/                Migrationen (0001 initial, 0002 multi-source)
+    ├── alembic/                Migrationen (0001 initial, 0002 multi-source, 0003 household.is_active)
     ├── tests/test_normalize.py
     └── app/
         ├── config.py           Settings (.env)

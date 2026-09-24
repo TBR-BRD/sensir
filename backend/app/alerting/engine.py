@@ -38,7 +38,10 @@ logger = logging.getLogger(__name__)
 
 def run_periodic_check() -> None:
     with session_scope() as session:
-        for household in session.execute(select(Household)).scalars().all():
+        households = session.execute(
+            select(Household).where(Household.is_active.is_(True))
+        ).scalars().all()
+        for household in households:
             try:
                 _check_safety(session, household)
             except Exception:
@@ -220,8 +223,13 @@ def _send_alert(session: Session, household: Household, action_count: int, min_a
 
 
 def _notify_contacts(session: Session, household: Household, message: str) -> None:
+    # niedrigste priority zuerst (0 = primärer Kontakt) - rein für die
+    # Sende-/Anzeige-Reihenfolge, aktuell werden trotzdem alle aktiven
+    # Kontakte benachrichtigt (keine Eskalationsstufen).
     contacts = session.execute(
-        select(Contact).where(Contact.household_id == household.id, Contact.is_active.is_(True))
+        select(Contact)
+        .where(Contact.household_id == household.id, Contact.is_active.is_(True))
+        .order_by(Contact.priority)
     ).scalars().all()
     if not contacts:
         logger.warning("household %s: Alarm, aber keine aktiven Kontakte", household.id)

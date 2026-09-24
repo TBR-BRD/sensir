@@ -61,6 +61,7 @@ h1 { margin-top: 0; }
 .status-positive { border-left-color: var(--green); }
 .status-negative { border-left-color: var(--red); }
 .status-unknown { border-left-color: var(--grey); }
+.status-paused { border-left-color: var(--grey); opacity: 0.6; }
 
 .status-banner {
   padding: 1rem;

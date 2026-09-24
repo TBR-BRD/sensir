@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### Mehrere Haushalte / Telegram-Kontakte: Pause, Priorität, Testnachricht, CRUD
+
+Architektur für den Mehr-Haushalt-Betrieb mit gemeinsamem Tuya-/Shelly-Konto
+abgerundet, plus Synology-taugliche Volume-Planung.
+
+- **`Household.is_active`** (Migration `0003_household_active`, Default
+  `true`): pausiert Zeitfenster-Auswertung, ML-Training und alle Alarme
+  (inkl. Rauch/Gas-Sofortalarme) für einen Haushalt, ohne ihn oder seine
+  Historie zu löschen (z. B. während eines Klinikaufenthalts). Umschalten
+  über Dashboard-Button oder `PATCH /api/households/{id}`.
+- **`Contact.priority`**: Kontaktlisten (API + Dashboard) sind jetzt danach
+  sortiert (0 = zuerst benachrichtigt). Vorerst reine Sortierung — bei einem
+  Alarm werden weiterhin alle aktiven Kontakte gleichzeitig benachrichtigt,
+  keine Eskalationsstufen.
+- **Kontakt-Testnachricht:** `POST /api/households/{id}/contacts/{id}/test`
+  (und Dashboard-Button) schickt sofort eine Telegram-Testnachricht an einen
+  Kontakt, unabhängig von Zeitfenstern, protokolliert in `alert_log`.
+- **CRUD abgerundet:** `PATCH`/`DELETE` jetzt auch für Haushalte, Kontakte
+  und Beobachtungsfenster (`api/households.py`, `api/contacts.py`,
+  `api/windows.py`); manuelles Bearbeiten eines Fensters setzt
+  `source=manual`.
+- **Dashboard:** Pause-Toggle und "(pausiert)"-Kennzeichnung je Haushalt,
+  gedimmte Karten für pausierte Haushalte (`.status-paused`), Prioritäts-Feld
+  im Kontaktformular, "Testnachricht senden"-Button pro Kontakt.
+- **Docker-Volumes → Bind-Mounts:** `postgres`- und `ml_models`-Daten liegen
+  jetzt unter `./data/postgres` bzw. `./data/ml_models` statt in benannten
+  Docker-Volumes, damit Synology Hyper Backup/Snapshot Replication den
+  Projektordner als Ganzes sichern kann. Siehe `sensir.md` Abschnitt 8.1 für
+  die empfohlene Ordnerstruktur und die Migrationsanleitung vom alten
+  Named-Volume-Stand.
+
 ### Multi-Source-Backend
 
 Das Backend ist von "nur IR-Bridge" auf **drei austauschbare Sensor-Quellen**

@@ -2,10 +2,15 @@
 {% block title %}{{ household.name }} – SensIR{% endblock %}
 {% block content %}
 <p><a href="/">&larr; Übersicht</a></p>
-<h1>{{ household.name }}</h1>
+<h1>{{ household.name }} {% if not household.is_active %}<span class="muted">(pausiert)</span>{% endif %}</h1>
 
-<section class="status-banner status-{{ status.status.value if status.status else 'unknown' }}">
-  {% if status.status and status.status.value == 'positive' %}Alles in Ordnung
+<form method="post" action="/households/{{ household.id }}/toggle-active">
+  <button type="submit">{% if household.is_active %}Überwachung pausieren{% else %}Überwachung fortsetzen{% endif %}</button>
+</form>
+
+<section class="status-banner {% if not household.is_active %}status-paused{% else %}status-{{ status.status.value if status.status else 'unknown' }}{% endif %}">
+  {% if not household.is_active %}Überwachung ist pausiert – keine Auswertung, keine Alarme.
+  {% elif status.status and status.status.value == 'positive' %}Alles in Ordnung
   {% elif status.status and status.status.value == 'negative' %}Bitte melde dich – keine Aktivität im erwarteten Zeitfenster!
   {% else %}Noch keine Auswertung für heute{% endif %}
   <div class="muted">Ereignisse seit Mitternacht: {{ status.events_since_midnight }}</div>
@@ -48,13 +53,25 @@
 
 <section>
   <h2>Kontakte</h2>
+  <p class="muted">Priorität: 0 = wird zuerst benachrichtigt. Aktuell erhalten trotzdem immer alle aktiven Kontakte jeden Alarm gleichzeitig.</p>
   <ul>
-    {% for c in contacts %}<li>{{ c.name }}{% if c.telegram_chat_id %} – Telegram{% endif %}{% if c.phone %} – {{ c.phone }}{% endif %}</li>{% endfor %}
+    {% for c in contacts %}
+    <li>
+      #{{ c.priority }} {{ c.name }}{% if not c.is_active %} <span class="muted">(inaktiv)</span>{% endif %}
+      {% if c.telegram_chat_id %} – Telegram{% endif %}{% if c.phone %} – {{ c.phone }}{% endif %}
+      {% if c.telegram_chat_id %}
+      <form method="post" action="/households/{{ household.id }}/contacts/{{ c.id }}/test" style="display:inline">
+        <button type="submit">Testnachricht senden</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
   </ul>
   <form method="post" action="/households/{{ household.id }}/contacts">
     <input type="text" name="name" placeholder="Name" required>
     <input type="text" name="telegram_chat_id" placeholder="Telegram chat_id">
     <input type="text" name="phone" placeholder="Telefonnummer">
+    <input type="number" name="priority" value="0" min="0" title="0 = zuerst benachrichtigt">
     <button type="submit">Kontakt hinzufügen</button>
   </form>
 </section>

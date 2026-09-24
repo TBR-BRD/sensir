@@ -97,7 +97,9 @@ def train_household_model(session: Session, household_id: int) -> dict | None:
 
 
 def train_all_household_models(session: Session) -> None:
-    household_ids = session.execute(select(Household.id)).scalars().all()
+    household_ids = session.execute(
+        select(Household.id).where(Household.is_active.is_(True))
+    ).scalars().all()
     for household_id in household_ids:
         try:
             train_household_model(session, household_id)
