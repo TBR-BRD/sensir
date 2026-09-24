@@ -129,22 +129,45 @@ class TuyaSource(PollingSource):
 
 # -- Discovery-Helfer für die API -------------------------------------
 def list_cloud_devices() -> list[dict]:
+    """Listet alle dem Projekt zugeordneten Geräte (Live-Test 2026-09-24).
+
+    Die naheliegende `/v1.0/users/{uid}/devices` (Geräte eines verknüpften
+    App-Kontos) existiert für neuere Tuya-Projekte nicht mehr im "Space"-
+    Berechtigungsmodell und antwortet mit `code 1106 "permission deny"`,
+    selbst mit korrekter UID (per Tuya-API-Explorer verifiziert). Der
+    heute funktionierende Ersatz ist die projektbezogene
+    `/v2.0/cloud/thing/device` - braucht keine App-Account-UID mehr,
+    seitdem ist `TUYA_APP_ACCOUNT_UID` nur noch für die QR-Code-Verknüpfung
+    beim Einrichten relevant, nicht mehr fürs Geräte-Listing.
+    """
     if TuyaOpenAPI is None:
         raise RuntimeError("tuya-connector-python nicht installiert")
     api = TuyaOpenAPI(
         settings.tuya_api_base, settings.tuya_access_id, settings.tuya_access_secret
     )
     api.connect()
-    uid = settings.tuya_app_account_uid
-    resp = api.get(f"/v1.0/users/{uid}/devices")
-    devices = resp.get("result", []) if resp.get("success") else []
+    devices: list[dict] = []
+    last_id = ""
+    page_size = 20  # groessere page_size liefert "code 40000904 param size too much"
+    for _ in range(50):  # hartes Limit gegen Endlosschleife bei unerwarteter Paginierung
+        params = f"?page_size={page_size}" + (f"&last_id={last_id}" if last_id else "")
+        resp = api.get(f"/v2.0/cloud/thing/device{params}")
+        if not resp.get("success"):
+            break
+        page = resp.get("result", [])
+        devices.extend(page)
+        if len(page) < page_size:
+            break
+        last_id = page[-1].get("id", "")
+        if not last_id:
+            break
     return [
         {
             "external_id": d.get("id"),
-            "name": d.get("name"),
+            "name": d.get("customName") or d.get("name"),
             "category": d.get("category"),
-            "product_name": d.get("product_name"),
-            "online": d.get("online"),
+            "product_name": d.get("productName"),
+            "online": d.get("isOnline"),
         }
         for d in devices
     ]

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fix: Tuya-Geräte-Discovery (`/v1.0/users/{uid}/devices` abgeschaltet)
+
+`GET /api/sources/tuya/devices` lieferte immer `[]`: der genutzte Endpunkt
+`/v1.0/users/{uid}/devices` existiert für neuere Tuya-Projekte (Space-
+Berechtigungsmodell) nicht mehr — `code 1106 "permission deny"`, auch mit
+korrekter UID (per Tuya-API-Explorer verifiziert). Umgestellt auf die
+projektbezogene `GET /v2.0/cloud/thing/device` (mit Pagination,
+`page_size<=20`), braucht keine App-Account-UID mehr. Gefunden und live
+gegen ein echtes Tuya-Konto verifiziert.
+
 ### Notrufknopf: sofortiger Alarm
 
 - Neues `Sensor.config["emergency"] = true` — jedes Ereignis dieses Sensors

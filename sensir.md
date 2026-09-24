@@ -254,8 +254,20 @@ die aktivierten Quellen. Jede Quelle läuft in ihrem eigenen Hintergrund-Thread
   Nachrichten nur im ECB-Modus (`app/ingest/tuya.py`, extern in der
   gepinnten Library). Ohne aktivierten Message-Service-Eintrag lehnt der
   Pulsar-Server die Verbindung mit `401 Unauthorized` ab.
-- Live gegen ein echtes Tuya-Konto verifiziert (2026-09-24): REST-Polling
-  und Pulsar-Stream funktionieren mit obigen Einstellungen.
+- **Geräte-Discovery-Endpunkt geändert:** `list_cloud_devices()`
+  (`GET /api/sources/tuya/devices`) nutzte ursprünglich
+  `/v1.0/users/{uid}/devices` (Geräte eines per QR-Code verknüpften
+  App-Kontos) — dieser Endpunkt existiert für neuere Tuya-Projekte im
+  "Space"-Berechtigungsmodell nicht mehr und antwortet mit
+  `code 1106 "permission deny"`, **auch mit korrekter UID** (per Tuya-
+  API-Explorer verifiziert, nicht nur unserem Code). Funktionierender
+  Ersatz: die projektbezogene `GET /v2.0/cloud/thing/device` (paginiert,
+  `page_size` max. ~20 — größere Werte liefern `code 40000904 "param size
+  too much"`), braucht **keine** App-Account-UID mehr. `TUYA_APP_ACCOUNT_UID`
+  bleibt trotzdem nötig für den QR-Code-Verknüpfungsschritt beim Einrichten
+  (Abschnitt 4.2 Setup-Schritt 2), nur nicht mehr fürs Geräte-Listing danach.
+- Live gegen ein echtes Tuya-Konto verifiziert (2026-09-24): REST-Polling,
+  Pulsar-Stream und Geräte-Discovery funktionieren mit obigen Einstellungen.
 
 ### 4.3 Shelly Cloud (`shelly.py`)
 
