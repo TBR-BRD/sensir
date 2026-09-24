@@ -67,13 +67,23 @@ class ShellySource(PollingSource):
             if i:
                 # Shellys Cloud-API limitiert Requests pro Sekunde recht knapp;
                 # ohne Pause zwischen den Sensoren kommen sofortige 429er.
-                time.sleep(0.5)
+                # 0.5s reichte im Live-Test nicht zuverlässig, 1.1s schon.
+                time.sleep(1.1)
             try:
                 r = httpx.post(
                     url,
                     data={"id": sensor.external_id, "auth_key": settings.shelly_auth_key},
                     timeout=15.0,
                 )
+                if r.status_code == 429:
+                    # Einmaliger Retry nach kurzer Pause statt den Sensor für
+                    # diesen ganzen Poll-Zyklus zu überspringen.
+                    time.sleep(2.0)
+                    r = httpx.post(
+                        url,
+                        data={"id": sensor.external_id, "auth_key": settings.shelly_auth_key},
+                        timeout=15.0,
+                    )
                 r.raise_for_status()
                 body = r.json()
             except Exception as exc:  # noqa: BLE001
