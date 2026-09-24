@@ -29,8 +29,11 @@ Rauch-/Gasmelder lösen **unabhängig vom Zeitfenster sofort** einen Alarm aus.
  IR-Bridge (Tasmota)     Tuya-/SmartLife-Geräte     Shelly-Geräte
         │ MQTT                  │ Tuya Cloud              │ Shelly Cloud
         ▼                       ▼                         ▼
-   Mosquitto            openapi.tuya*.com          shelly-*.shelly.cloud
-        │                  + Pulsar-Stream            + Cloud-WebSocket
+ externer MQTT-Broker     openapi.tuya*.com          shelly-*.shelly.cloud
+ (öffentlich erreichbar,     + Pulsar-Stream            + Cloud-WebSocket
+  eigener Server/DynDNS,
+  außerhalb des Compose-
+  Stacks)
         └───────────────┬───────┴─────────────────────────┘
                         ▼
    FastAPI-Backend
@@ -163,9 +166,25 @@ die aktivierten Quellen. Jede Quelle läuft in ihrem eigenen Hintergrund-Thread
   vom asyncio-Loop von FastAPI — bewusste Entscheidung, da jede Nachricht
   einen synchronen DB-Write auslöst und die Nachrichtenrate gering ist.
 - Matching: `Sensor.mqtt_topic == <topic-Basisname>` und `kind=ir_bridge`.
+- **Broker: extern, nicht Teil des Compose-Stacks.** Die beobachteten
+  Haushalte sind räumlich getrennt (verschiedene Wohnungen der Eltern/
+  Angehörigen), keiner davon hat Port-Forwarding zum Hosting-Server
+  eingerichtet — ein lokal in `docker-compose.yml` mitgehosteter Broker
+  wäre für die IR-Bridges der anderen Haushalte gar nicht erreichbar.
+  Stattdessen zeigen sowohl alle Tasmota-Geräte als auch dieses Backend
+  (als MQTT-Client, ausgehende Verbindung) auf einen von außen
+  erreichbaren Broker — hier: ein selbst betriebener Broker hinter einer
+  DynDNS-Adresse (AVM MyFRITZ!, Port-Forwarding auf der jeweiligen
+  FritzBox). **Ein gemeinsamer MQTT-Benutzer für alle Haushalte** — die
+  Trennung der Haushalte passiert ausschließlich über eindeutige
+  `mqtt_topic`-Namen pro Sensor (z. B. `sensir-<haushalt>-01`), nicht über
+  Broker-ACLs. Siehe Abschnitt 9 für die daraus resultierende
+  Sicherheitslücke (jeder mit den MQTT-Zugangsdaten kann jedes Topic
+  lesen/fälschen).
 - **Setup:**
-  1. Tasmota flashen/konfigurieren, MQTT-Server auf den Mosquitto-Broker
-     zeigen lassen (Zugangsdaten aus `.env`).
+  1. Tasmota flashen/konfigurieren, MQTT-Server/Port/Zugangsdaten auf den
+     externen Broker zeigen lassen (Werte aus `.env`: `MQTT_HOST/PORT/
+     USERNAME/PASSWORD`) — **nicht** auf die Synology.
   2. Sensor anlegen:
      ```bash
      curl -X POST localhost:8000/api/sensors -H 'Content-Type: application/json' \
@@ -173,9 +192,6 @@ die aktivierten Quellen. Jede Quelle läuft in ihrem eigenen Hintergrund-Thread
      ```
 - Konfiguration: `MQTT_ENABLED`, `MQTT_HOST/PORT/USERNAME/PASSWORD`,
   `MQTT_RESULT_TOPIC_FILTERS` (Standard `tele/+/RESULT,stat/+/RESULT`).
-- Mosquitto-Broker läuft als eigener Compose-Service, wird **nur für diese
-  Quelle** gebraucht (bei reinem Tuya/Shelly-Betrieb `MQTT_ENABLED=false`
-  setzen und den Service optional weglassen).
 
 ### 4.2 Tuya / SmartLife Cloud (`tuya.py`)
 
@@ -271,7 +287,7 @@ ausgeschlossen und stattdessen sofort alarmiert.
 - Pro Haushalt können Zeitfenster konfiguriert werden: Wochentag (oder `null`
   = jeden Tag), Start-/Endzeit, `min_actions`.
 - Ohne konfiguriertes Fenster gilt der Default aus `.env`
-  (`DEFAULT_WINDOW_START/END/MIN_ACTIONS`, Standard 18:00–24:00, 2 Aktionen).
+  (`DEFAULT_WINDOW_START/END/MIN_ACTIONS`, Standard 18:00–23:59, 2 Aktionen).
 - `scheduler.py` lässt `run_periodic_check()` alle `CHECK_INTERVAL_MINUTES`
   (Standard 15) laufen: für jedes heute aktive Fenster wird die Zahl der
   `SensorEvent`s (ohne `safety`) im Fenster gezählt.
@@ -341,11 +357,12 @@ POSTGRES_PASSWORD=change-me
 POSTGRES_DB=sensir
 DATABASE_URL=postgresql+psycopg2://sensir:change-me@postgres:5432/sensir
 
-# Quelle 1: IR-Bridge über MQTT
+# Quelle 1: IR-Bridge über MQTT (externer, öffentlich erreichbarer Broker -
+# siehe 4.1, kein Compose-Service)
 MQTT_ENABLED=true
-MQTT_HOST=mosquitto
+MQTT_HOST=your-broker.example.com
 MQTT_PORT=1883
-MQTT_USERNAME=sensir
+MQTT_USERNAME=change-me
 MQTT_PASSWORD=change-me
 MQTT_RESULT_TOPIC_FILTERS=tele/+/RESULT,stat/+/RESULT
 
@@ -369,7 +386,7 @@ SOURCE_POLL_INTERVAL_SECONDS=120   # Tuya + Shelly Polling-Fallback
 TELEGRAM_BOT_TOKEN=
 CHECK_INTERVAL_MINUTES=15
 DEFAULT_WINDOW_START=18:00
-DEFAULT_WINDOW_END=24:00
+DEFAULT_WINDOW_END=23:59
 DEFAULT_MIN_ACTIONS=2
 ML_MIN_SAMPLES=200
 ML_TRAIN_HOUR_UTC=3
@@ -380,13 +397,13 @@ ML_TRAIN_HOUR_UTC=3
 Zielsystem: **Synology DS720+** über Docker/Container Manager.
 
 ```bash
-cp .env.example .env        # ausfüllen
-./scripts/create_mqtt_user.sh   # nur nötig, wenn MQTT_ENABLED=true
+cp .env.example .env        # ausfüllen (u. a. MQTT_HOST/PORT des externen Brokers)
 docker compose up --build
 ```
 
-- `docker-compose.yml`: `postgres` + `mosquitto` (optional bei reinem
-  Tuya/Shelly-Betrieb) + `backend`.
+- `docker-compose.yml`: `postgres` + `backend`. Kein Mosquitto-Service mehr
+  im Stack — der MQTT-Broker für die IR-Bridge-Quelle läuft extern (siehe
+  4.1), erreichbar über `MQTT_HOST/PORT` in `.env`.
 - Migrationen laufen beim Start automatisch (`alembic upgrade head` im
   Backend-Container-Command).
 - Dashboard: `http://<synology>:8000/`, API-Doku: `http://<synology>:8000/docs`.
@@ -406,11 +423,9 @@ z. B. `/volume1/docker/sensir`):
 
 ```
 /volume1/docker/sensir/          ← Repo-Checkout, in Hyper Backup aufnehmen
-├── .env                         ← Zugangsdaten, NICHT in Git
+├── .env                         ← Zugangsdaten, NICHT in Git (u. a. externer
+│                                    MQTT-Broker: MQTT_HOST/PORT/USER/PW)
 ├── docker-compose.yml
-├── mosquitto/
-│   ├── config/                  ← statisch, aus Git
-│   └── data/, log/              ← Broker-Laufzeitdaten (klein, unkritisch)
 └── data/                        ← s. .gitignore, alles hier ist Laufzeitdaten
     ├── postgres/                ← Postgres-Datenverzeichnis (die eigentlichen
     │                              Events/Historie aller Haushalte — wichtigster
@@ -453,10 +468,15 @@ uvicorn app.main:app --reload
 
 ## 9. Sicherheit / bekannte Lücken
 
-- **MQTT**: aktuell Benutzername/Passwort ohne TLS (PoC-Entscheidung). Für den
-  produktiven Rollout: MQTTS mit Client-Zertifikat pro Sensor (Tasmota
-  unterstützt das nativ) — natives WireGuard auf dem ESP8266 ist nicht
-  praktikabel.
+- **MQTT**: läuft jetzt über einen von außen erreichbaren Broker (nötig, weil
+  IR-Bridges in mehreren, per Port-Forwarding nicht erreichbaren Haushalten
+  stehen) — aktuell Benutzername/Passwort ohne TLS, und **ein gemeinsamer
+  Broker-User für alle Haushalte** ohne Topic-ACLs (PoC-Entscheidung, siehe
+  4.1). Das heißt: wer die MQTT-Zugangsdaten kennt, kann Topics jedes
+  Haushalts lesen und fälschte Ereignisse einspielen. Für den produktiven
+  Rollout: MQTTS (TLS) und entweder Client-Zertifikat pro Sensor (Tasmota
+  unterstützt das nativ) oder zumindest Broker-ACLs, die einen Haushalt auf
+  sein eigenes Topic-Präfix beschränken.
 - **Tuya/Shelly-Zugangsdaten** liegen nur in `.env` (nicht im Git,
   `.gitignore` deckt das ab).
 - **Contact-Onboarding**: `telegram_chat_id` manuell ermittelt, kein
@@ -471,9 +491,8 @@ uvicorn app.main:app --reload
 ```
 sensir/
 ├── .env.example
-├── docker-compose.yml
-├── mosquitto/                 Broker-Config (nur für IR-Quelle)
-├── scripts/create_mqtt_user.sh
+├── docker-compose.yml         Kein Mosquitto-Service — MQTT-Broker läuft
+│                              extern (siehe Abschnitt 4.1)
 └── backend/
     ├── requirements.txt
     ├── alembic/                Migrationen (0001 initial, 0002 multi-source, 0003 household.is_active)

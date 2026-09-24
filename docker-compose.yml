@@ -14,30 +14,15 @@ services:
       timeout: 5s
       retries: 10
 
-  # Nur für die IR-Bridge-Quelle nötig. Bei reinem Tuya-/Shelly-Betrieb kann
-  # dieser Service entfallen (dann MQTT_ENABLED=false in .env setzen).
-  mosquitto:
-    image: eclipse-mosquitto:2
-    restart: unless-stopped
-    ports:
-      - "1883:1883"
-    volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
-
   backend:
     build: ./backend
     restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      MQTT_HOST: mosquitto
     depends_on:
       postgres:
         condition: service_healthy
-      mosquitto:
-        condition: service_started
     ports:
       - "8000:8000"
     volumes:

@@ -10,13 +10,6 @@ venv/
 # ML models (trained per household, not source)
 backend/app/ml/models/*.joblib
 
-# Mosquitto runtime data
-mosquitto/data/*
-mosquitto/log/*
-!mosquitto/data/.gitkeep
-!mosquitto/log/.gitkeep
-mosquitto/config/passwd
-
 # Bind-mounted runtime data (Postgres, ML-Modelle) - siehe docker-compose.yml
 data/
 

@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### MQTT-Broker: extern statt selbstgehostet
+
+Die IR-Bridge-Quelle braucht einen Broker, den sowohl die Tasmota-Geräte in
+den (mehreren, räumlich getrennten) Haushalten als auch das Backend erreichen
+— ein per Docker Compose auf der Synology mitgehosteter Mosquitto ist dafür
+ungeeignet, da dort kein Port-Forwarding eingerichtet ist und mehrere externe
+Haushalte ihn ohnehin nicht erreichen könnten.
+
+- `docker-compose.yml`: `mosquitto`-Service entfernt, `backend` verbindet
+  sich direkt (ausgehend) zu einem extern konfigurierten Broker über
+  `MQTT_HOST`/`MQTT_PORT` aus `.env`.
+- Repo aufgeräumt: `mosquitto/` (Config/Datenverzeichnisse) und
+  `scripts/create_mqtt_user.sh` entfernt (waren nur für den lokalen Broker).
+- Ein gemeinsamer MQTT-Benutzer für alle Haushalte, Trennung über
+  eindeutige `mqtt_topic`-Namen pro Sensor — **keine** Broker-ACLs, siehe
+  `sensir.md` Abschnitt 9 für die daraus resultierende Sicherheitslücke.
+- README/`sensir.md` (Abschnitte 2, 4.1, 7, 8, 9, 10) entsprechend
+  aktualisiert.
+
 ### Mehrere Haushalte / Telegram-Kontakte: Pause, Priorität, Testnachricht, CRUD
 
 Architektur für den Mehr-Haushalt-Betrieb mit gemeinsamem Tuya-/Shelly-Konto

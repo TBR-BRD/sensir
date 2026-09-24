@@ -27,8 +27,9 @@ Hintergrund, Personas, Business Model Canvas etc. siehe die Projekt-Doku
  IR-Bridge (Tasmota)     Tuya-/SmartLife-Geräte     Shelly-Geräte
         │ MQTT                  │ Tuya Cloud              │ Shelly Cloud
         ▼                       ▼                         ▼
-   Mosquitto            openapi.tuya*.com          shelly-*.shelly.cloud
-        │                  + Pulsar-Stream            + Cloud-WebSocket
+ externer MQTT-Broker     openapi.tuya*.com          shelly-*.shelly.cloud
+ (öffentlich erreichbar,     + Pulsar-Stream            + Cloud-WebSocket
+  eigener Server/DynDNS)
         └───────────────┬───────┴─────────────────────────┘
                         ▼
    FastAPI Backend
@@ -53,14 +54,19 @@ Hintergrund, Personas, Business Model Canvas etc. siehe die Projekt-Doku
 - Ein oder mehrere Pearl-IR-Fernbedienungen mit Tasmota-Firmware
   (Modul-Typ "YTF IR Bridge (62)"), siehe `Pearl-IR-Sender-Tasmota.pdf` für
   die Flash-Anleitung.
+- Ein von außen erreichbarer MQTT-Broker (kein Bestandteil dieses
+  Compose-Stacks — die IR-Bridges sitzen in verschiedenen, entfernten
+  Haushalten ohne Port-Forwarding zum Hosting-Server). Praktisch: der
+  eigene Broker hinter einer DynDNS-Adresse (z. B. AVM MyFRITZ!), mit
+  einem gemeinsamen Benutzer für alle Haushalte — die Trennung passiert
+  über `mqtt_topic` pro Sensor, nicht über MQTT-User.
 
 ## Setup
 
 ```bash
 cp .env.example .env
-# .env anpassen: Postgres-Passwort, MQTT-Zugangsdaten, Telegram-Bot-Token
-
-./scripts/create_mqtt_user.sh   # legt mosquitto/config/passwd an
+# .env anpassen: Postgres-Passwort, externer MQTT-Broker (Host/Port/User/PW),
+# Telegram-Bot-Token
 
 docker compose up --build
 ```
@@ -73,8 +79,11 @@ Die erste Migration wird beim Start automatisch ausgeführt
 
 1. Tasmota-Gerät wie in `Pearl-IR-Sender-Tasmota.pdf` beschrieben flashen
    und einrichten. Modul-Typ "YTF IR Bridge (62)", MQTT-Server/Port/Zugangsdaten
-   auf den Mosquitto-Broker aus `.env` zeigen lassen. Der Tasmota-Topic-Name
-   (Configuration → MQTT → Topic) ist der `mqtt_topic` unten.
+   auf den externen Broker aus `.env` (`MQTT_HOST`/`MQTT_PORT`) zeigen lassen —
+   nicht auf die Synology, die IR-Bridge braucht die öffentlich erreichbare
+   Broker-Adresse. Der Tasmota-Topic-Name (Configuration → MQTT → Topic) muss
+   pro Haushalt eindeutig sein (z. B. `sensir-<haushalt>-01`) und ist der
+   `mqtt_topic` unten.
 2. Sensor + Haushalt in SensIR anlegen:
 
    ```bash
@@ -135,10 +144,12 @@ Onboarding-Flow in der App fehlt hier noch bewusst (PoC-Stand).
 
 ## Bekannte Lücken / nächste Schritte
 
-- **Sensor-Sicherheit**: aktuell MQTT-Benutzername/Passwort ohne TLS
-  (PoC-Entscheidung). Für den produktiven Rollout: MQTTS mit
-  Client-Zertifikat pro Sensor (Tasmota unterstützt das nativ), da natives
-  WireGuard auf dem ESP8266 nicht praktikabel ist.
+- **Sensor-Sicherheit**: aktuell MQTT-Benutzername/Passwort ohne TLS, und
+  ein gemeinsamer Broker-User für alle Haushalte (PoC-Entscheidung, siehe
+  sensir.md 4.1/9). Für den produktiven Rollout: MQTTS mit
+  Client-Zertifikat pro Sensor (Tasmota unterstützt das nativ) und/oder
+  Broker-ACLs pro Topic-Präfix, damit ein Haushalt nicht die Topics eines
+  anderen abhören/fälschen kann.
 - **ML-Modell**: keine Mitternachts-Wraparound-Behandlung im
   KernelDensity-Fenster — für die Zielgruppe (abendliches Fernsehen) bisher
   unkritisch, siehe Docstring in `app/ml/window_model.py`.
@@ -154,7 +165,7 @@ Onboarding-Flow in der App fehlt hier noch bewusst (PoC-Stand).
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-# .env im Projekt-Root muss auf lokal erreichbare Postgres/Mosquitto-Instanzen zeigen
+# .env im Projekt-Root muss auf eine lokal erreichbare Postgres-Instanz zeigen
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
