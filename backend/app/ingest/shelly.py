@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 
 import httpx
 from sqlalchemy import select
@@ -60,9 +61,13 @@ class ShellySource(PollingSource):
 
     def poll_once(self) -> None:
         url = f"{settings.shelly_api_host.rstrip('/')}/device/status"
-        for sensor in self._shelly_sensors():
+        for i, sensor in enumerate(self._shelly_sensors()):
             if not sensor.external_id:
                 continue
+            if i:
+                # Shellys Cloud-API limitiert Requests pro Sekunde recht knapp;
+                # ohne Pause zwischen den Sensoren kommen sofortige 429er.
+                time.sleep(0.5)
             try:
                 r = httpx.post(
                     url,
