@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.alerting.telegram import send_telegram_message
+from app.config import settings
 from app.db import get_db
 from app.models import AlertLog, Contact, Household, SensorEvent, ObservationWindow, Sensor, WindowSource
 from app.status_service import compute_status
@@ -15,11 +16,41 @@ router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory="app/web/templates")
 
 
+def _tuya_trial_warning() -> str | None:
+    """Erinnerung fürs Dashboard, wenn TUYA_TRIAL_EXPIRES (manuell in .env
+    gepflegt, siehe app/config.py) bald abläuft oder schon abgelaufen ist -
+    Tuya bietet dafür kein API-Feld an, das man automatisch abfragen könnte."""
+    if not settings.tuya_trial_expires:
+        return None
+    days_left = (settings.tuya_trial_expires - dt.date.today()).days
+    if days_left > settings.tuya_trial_warn_days_before:
+        return None
+    expiry = f"{settings.tuya_trial_expires:%d.%m.%Y}"
+    if days_left < 0:
+        return (
+            f"⚠️ Das Tuya-IoT-Core-Trial-Abo ist am {expiry} abgelaufen — "
+            f"Tuya-Geräte liefern keine Daten mehr, bis es bei iot.tuya.com "
+            f"(Cloud → Service API → IoT Core → View Details → Extend Trial "
+            f"Period) verlängert wird."
+        )
+    return (
+        f"⚠️ Das Tuya-IoT-Core-Trial-Abo läuft am {expiry} ab (noch "
+        f"{days_left} Tage) — rechtzeitig bei iot.tuya.com verlängern."
+    )
+
+
 @router.get("/")
 def dashboard(request: Request, db: Session = Depends(get_db)):
     households = db.execute(select(Household)).scalars().all()
     statuses = [compute_status(db, h) for h in households]
-    return templates.TemplateResponse("dashboard.html", {"request": request, "statuses": statuses})
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "statuses": statuses,
+            "tuya_trial_warning": _tuya_trial_warning(),
+        },
+    )
 
 
 @router.get("/households/{household_id}")

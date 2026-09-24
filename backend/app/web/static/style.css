@@ -3,6 +3,8 @@
   --green: #2e7d32;
   --red: #c62828;
   --grey: #757575;
+  --amber: #b26a00;
+  --amber-bg: #fff3e0;
   --bg: #fafafa;
   --card-bg: #fff;
   --border: #e0e0e0;
@@ -74,6 +76,16 @@ h1 { margin-top: 0; }
 .status-banner.status-negative { background: var(--red); }
 .status-banner.status-unknown { background: var(--grey); }
 .status-banner .muted { color: rgba(255,255,255,0.85); font-weight: 400; }
+
+.warning-banner {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
 
 table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; }
 th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); }

@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}SensIR – Übersicht{% endblock %}
 {% block content %}
+{% if tuya_trial_warning %}
+<section class="warning-banner">{{ tuya_trial_warning }}</section>
+{% endif %}
 <h1>Haushalte</h1>
 {% if not statuses %}
   <p class="empty">Noch keine Haushalte angelegt. Über <code>POST /api/households</code> anlegen.</p>

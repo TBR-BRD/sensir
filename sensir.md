@@ -237,11 +237,25 @@ die aktivierten Quellen. Jede Quelle läuft in ihrem eigenen Hintergrund-Thread
      # Steckdose mit Verbrauchsmessung:
      #   "config":{"room":"kueche","on_threshold_w":15}
      ```
-- **Bekannte Falle:** das Tuya-Trial-Kontingent für *IoT Core* läuft nach ca.
-  einem Monat ab und muss im Tuya-Dashboard kostenlos verlängert werden —
-  sonst antworten die APIs mit `code 28841105`.
-- **Noch offen:** Pulsar-Nachrichtenformat wurde nur gegen die pychromecast-
-  ähnliche Doku entworfen, nicht gegen echte Tuya-Geräte verifiziert.
+- **Bekannte Falle:** das Tuya-Trial-Kontingent (*Cloud Develop Base Resource
+  Trial*, unterliegt der *IoT Core*-Subscription) läuft nach ca. einem Monat
+  ab und muss im Tuya-Projekt kostenlos verlängert werden — sonst antworten
+  die REST-Calls mit `code 28841002` ("No permissions. Your subscription to
+  cloud development plan has expired.") und der Pulsar-Websocket mit
+  `401 Unauthorized`. Verlängern: Projekt → **Service API** → „IoT Core" →
+  **View Details** → bei der `IoT Core`-Zeile auf **„Extend Trial Period"**.
+  Erinnerung im Dashboard: `TUYA_TRIAL_EXPIRES` in `.env` nach jeder
+  Verlängerung nachtragen (siehe Abschnitt 7) — dann warnt das Dashboard
+  `TUYA_TRIAL_WARN_DAYS_BEFORE` Tage vorher.
+- **Pulsar-Verschlüsselung:** im Tuya-Projekt unter **Message Service**
+  muss „Message Queue" aktiviert und als **Encryption Algorithm** **AES-ECB**
+  gewählt werden (nicht das von Tuya empfohlene AES-GCM) — die verwendete
+  `tuya-connector-python`-Bibliothek (Version 0.1.2) entschlüsselt Pulsar-
+  Nachrichten nur im ECB-Modus (`app/ingest/tuya.py`, extern in der
+  gepinnten Library). Ohne aktivierten Message-Service-Eintrag lehnt der
+  Pulsar-Server die Verbindung mit `401 Unauthorized` ab.
+- Live gegen ein echtes Tuya-Konto verifiziert (2026-09-24): REST-Polling
+  und Pulsar-Stream funktionieren mit obigen Einstellungen.
 
 ### 4.3 Shelly Cloud (`shelly.py`)
 
@@ -385,6 +399,8 @@ TUYA_ACCESS_SECRET=
 TUYA_REGION=eu
 TUYA_APP_ACCOUNT_UID=
 TUYA_PULSAR_ENABLED=true
+TUYA_TRIAL_EXPIRES=              # z.B. 2027-03-24, siehe Abschnitt 4.2 "Bekannte Falle"
+TUYA_TRIAL_WARN_DAYS_BEFORE=14
 
 # Quelle 3: Shelly
 SHELLY_ENABLED=false
@@ -494,7 +510,8 @@ uvicorn app.main:app --reload
 - **Contact-Onboarding**: `telegram_chat_id` manuell ermittelt, kein
   Self-Service-Flow.
 - **ML-Wraparound**: siehe 5.2.
-- **Tuya-Trial**: monatliche Verlängerung im Tuya-Dashboard nötig.
+- **Tuya-Trial**: monatliche Verlängerung im Tuya-Dashboard nötig — Dashboard
+  zeigt eine Erinnerung, sobald `TUYA_TRIAL_EXPIRES` gepflegt ist (Abschnitt 4.2).
 - **Pulsar-/Shelly-WS-Format**: noch nicht gegen echte Geräte verifiziert
   (nächster praktischer Schritt).
 

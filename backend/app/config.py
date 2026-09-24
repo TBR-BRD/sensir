@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     tuya_region: str = "eu"                 # eu|us|cn|in
     tuya_app_account_uid: str = ""
     tuya_pulsar_enabled: bool = True
+    # Ablaufdatum des Tuya-IoT-Core-Trial-Abos (iot.tuya.com -> Cloud -> Service
+    # API -> IoT Core -> View Details -> "Extend Trial Period"). Kein API-Feld
+    # dafür verfügbar - hier manuell nachtragen, wenn man verlängert hat, dann
+    # zeigt das Dashboard rechtzeitig vorher eine Erinnerung (siehe
+    # TUYA_TRIAL_WARN_DAYS_BEFORE).
+    tuya_trial_expires: dt.date | None = None
+    tuya_trial_warn_days_before: int = 14
 
     # -- Shelly Cloud ---------------------------------------------------
     shelly_enabled: bool = False
