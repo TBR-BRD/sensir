@@ -4,12 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}SensIR{% endblock %}</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/style.css">
   {% block refresh %}<meta http-equiv="refresh" content="60">{% endblock %}
 </head>
 <body>
   <header>
-    <a href="/" class="brand">SensIR</a>
+    <a href="/" class="brand"><img src="/static/favicon-32.png" alt="" width="24" height="24"> SensIR</a>
   </header>
   <main>
     {% block content %}{% endblock %}
