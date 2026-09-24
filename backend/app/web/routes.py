@@ -1,4 +1,5 @@
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -62,13 +63,28 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
         select(Contact).where(Contact.household_id == household_id).order_by(Contact.priority)
     ).scalars().all()
     windows = db.execute(select(ObservationWindow).where(ObservationWindow.household_id == household_id)).scalars().all()
-    recent_events = db.execute(
-        select(SensorEvent)
+    tz = ZoneInfo(household.timezone)
+    rows = db.execute(
+        select(SensorEvent, Sensor)
         .join(Sensor, Sensor.id == SensorEvent.sensor_id)
         .where(Sensor.household_id == household_id)
         .order_by(SensorEvent.received_at.desc())
         .limit(20)
-    ).scalars().all()
+    ).all()
+    # UTC (DB) -> Haushalts-Zeitzone, plus Sensorname, damit man sieht wer
+    # das Ereignis geschickt hat - vorher zeigte die Tabelle nur protocol/
+    # data_hex, die außerhalb der IR-Bridge-Quelle immer leer sind.
+    recent_events = [
+        {
+            "received_at_local": ev.received_at.astimezone(tz),
+            "sensor_name": sensor.name,
+            "kind": ev.kind,
+            "protocol": ev.protocol,
+            "data_hex": ev.data_hex,
+            "value": ev.value,
+        }
+        for ev, sensor in rows
+    ]
     return templates.TemplateResponse(
         "household.html",
         {

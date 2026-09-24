@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Fix: Zeitzone bei Ereignis-Anzeige + Sensor-Name in der Tabelle
+
+`SensorEvent.received_at` liegt in der DB als UTC, wurde im Dashboard aber
+ohne Umrechnung auf die Haushalts-Zeitzone angezeigt — live beobachtet:
+Shelly-App zeigte für eine Bewegung 20:09 Lokalzeit, das Dashboard 18:10
+(dasselbe Ereignis, 2h Differenz durch fehlende UTC→Lokalzeit-Umrechnung,
+sah aus wie eine veraltete/verpasste Auswertung). Fix zentral in
+`status_service.compute_status()` (`last_event_at`) und in der
+Haushalts-Detailseite (`recent_events`).
+
+Außerdem: die Tabelle "Letzte Ereignisse" (vorher "Letzte
+Fernbedienungs-Ereignisse") zeigt jetzt den **Sensornamen** und die
+**Ereignis-Art** (`kind`) pro Zeile — vorher nur `protocol`/`data_hex`,
+die außerhalb der IR-Bridge-Quelle immer leer waren und bei Tuya/Shelly-
+Ereignissen eine leere Tabelle vortäuschten.
+
 ### Fix: Tuya-Geräte-Discovery (`/v1.0/users/{uid}/devices` abgeschaltet)
 
 `GET /api/sources/tuya/devices` lieferte immer `[]`: der genutzte Endpunkt

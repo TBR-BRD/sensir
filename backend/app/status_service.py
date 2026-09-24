@@ -29,6 +29,13 @@ def compute_status(db: Session, household: Household) -> HouseholdStatusOut:
         .join(Sensor, Sensor.id == SensorEvent.sensor_id)
         .where(Sensor.household_id == household.id)
     ).scalar_one()
+    if last_event_at is not None:
+        # in der DB liegt alles in UTC (DateTime(timezone=True)) - fürs
+        # Dashboard/die API auf die Haushalts-Zeitzone umrechnen, sonst
+        # sieht ein UTC-Zeitstempel wie eine 2h alte/verpasste Aktivität aus
+        # (live beobachtet: Shelly-App zeigte 20:09 Lokalzeit, Dashboard
+        # 18:10 - beides dasselbe Ereignis, nur ohne Umrechnung angezeigt).
+        last_event_at = last_event_at.astimezone(tz)
 
     events_since_midnight = db.execute(
         select(func.count(SensorEvent.id))

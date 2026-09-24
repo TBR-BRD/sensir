@@ -77,11 +77,21 @@
 </section>
 
 <section>
-  <h2>Letzte Fernbedienungs-Ereignisse</h2>
+  <h2>Letzte Ereignisse</h2>
+  <p class="muted">Zeiten in Lokalzeit ({{ household.timezone }}).</p>
   <table>
-    <tr><th>Zeit</th><th>Protokoll</th><th>Daten</th></tr>
+    <tr><th>Zeit</th><th>Sensor</th><th>Art</th><th>Daten</th></tr>
     {% for e in recent_events %}
-    <tr><td>{{ e.received_at.strftime('%d.%m. %H:%M:%S') }}</td><td>{{ e.protocol }}</td><td>{{ e.data_hex }}</td></tr>
+    <tr>
+      <td>{{ e.received_at_local.strftime('%d.%m. %H:%M:%S') }}</td>
+      <td>{{ e.sensor_name }}</td>
+      <td>{{ e.kind }}</td>
+      <td>
+        {%- if e.protocol -%}{{ e.protocol }} {{ e.data_hex }}
+        {%- elif e.value is not none -%}{{ e.value }}
+        {%- else -%}–{%- endif -%}
+      </td>
+    </tr>
     {% endfor %}
   </table>
 </section>
