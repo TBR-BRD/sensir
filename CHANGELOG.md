@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### sensir-card v1.3.0: Kacheln starten zugeklappt, kleiner Auf-/Zu-Pfeil
+
+Feedback nach v1.2.0: die immer sichtbare Ereignisliste war zu viel auf
+einen Blick. Kacheln zeigen jetzt standardmäßig nur den Status; ein kleiner
+Pfeil rechts klappt die letzten Ereignisse separat auf/zu (Zustand pro
+Karte, kein Neuladen). Klick auf den Haushaltsnamen öffnet weiterhin die
+volle sensir-Seite in neuem Tab — beides jetzt getrennte Klickflächen
+innerhalb derselben Kachel statt einem einzigen `<a>` über die ganze Karte.
+
 ### sensir-card v1.2.0: letzte Ereignisse statt Sensoren/Kontakte
 
 Auf Nutzerwunsch die aufklappbare Sensoren/Kontakte-Ansicht aus v1.1.0

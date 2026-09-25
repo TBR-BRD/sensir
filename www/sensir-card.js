@@ -1,4 +1,4 @@
-const SENSIR_CARD_VERSION = "1.2.0";
+const SENSIR_CARD_VERSION = "1.3.0";
 
 /**
  * Custom Lovelace-Karte für sensir (https://github.com/TBR-BRD/sensir).
@@ -17,9 +17,11 @@ const SENSIR_CARD_VERSION = "1.2.0";
  *   event_limit: 10                        # optional, Standard 10
  *   household_ids: [1, 2]                  # optional, sonst alle Haushalte
  *
- * Jede Haushalts-Kachel zeigt Status + die letzten `event_limit` Ereignisse;
- * Klick auf die Kachel öffnet die vollständige sensir-Seite (Zeitfenster
- * bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
+ * Jede Haushalts-Kachel startet zugeklappt (nur Status). Ein kleiner Pfeil
+ * klappt die letzten `event_limit` Ereignisse auf/zu, ohne die Seite zu
+ * verlassen. Klick auf den Haushaltsnamen öffnet die vollständige sensir-
+ * Seite (Zeitfenster bearbeiten, Testnachricht senden, Sensor anlegen, …)
+ * in einem neuen Tab.
  */
 class SensirCard extends HTMLElement {
   constructor() {
@@ -28,6 +30,7 @@ class SensirCard extends HTMLElement {
     this._config = {};
     this._timer = null;
     this._renderGeneration = 0;
+    this._expandedIds = new Set();
   }
 
   static getStubConfig() {
@@ -133,10 +136,12 @@ class SensirCard extends HTMLElement {
   }
 
   _render(statuses) {
+    this._lastStatuses = statuses;
     const base = this._config.base_url;
     const cardsHtml = statuses
       .map((s) => {
         const meta = this._statusMeta(s);
+        const expanded = this._expandedIds.has(s.household_id);
         const lastEvent = s.last_event_at ? this._formatTime(s.last_event_at) : "Keine Aktivität registriert";
 
         const eventsHtml = (s.events || []).length
@@ -150,13 +155,19 @@ class SensirCard extends HTMLElement {
           : '<li class="dim">Keine Ereignisse</li>';
 
         return `
-          <a class="hh-card" style="border-left-color:${meta.color}"
-             href="${base}/households/${s.household_id}" target="_blank" rel="noopener">
-            <div class="hh-name">${this._esc(s.household_name)}</div>
-            <div class="hh-status">${meta.label}</div>
-            <div class="hh-meta">${s.error ? "" : "Letzte Aktivität: " + this._esc(lastEvent)}</div>
-            <ul class="hh-events">${eventsHtml}</ul>
-          </a>`;
+          <div class="hh-card" style="border-left-color:${meta.color}">
+            <div class="hh-head">
+              <a class="hh-link" href="${base}/households/${s.household_id}" target="_blank" rel="noopener">
+                <div class="hh-name">${this._esc(s.household_name)}</div>
+                <div class="hh-status">${meta.label}</div>
+                <div class="hh-meta">${s.error ? "" : "Letzte Aktivität: " + this._esc(lastEvent)}</div>
+              </a>
+              <button class="hh-toggle" data-toggle="${s.household_id}" aria-label="Ereignisse ein-/ausblenden">
+                ${expanded ? "▾" : "▸"}
+              </button>
+            </div>
+            ${expanded ? `<ul class="hh-events">${eventsHtml}</ul>` : ""}
+          </div>`;
       })
       .join("");
 
@@ -165,6 +176,23 @@ class SensirCard extends HTMLElement {
       <ha-card header="${this._esc(this._config.title)}">
         <div class="grid">${cardsHtml || '<p class="empty">Keine Haushalte angelegt.</p>'}</div>
       </ha-card>`;
+
+    this._attachHandlers();
+  }
+
+  _attachHandlers() {
+    this.shadowRoot.querySelectorAll("[data-toggle]").forEach((el) => {
+      el.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        const id = Number(el.dataset.toggle);
+        if (this._expandedIds.has(id)) {
+          this._expandedIds.delete(id);
+        } else {
+          this._expandedIds.add(id);
+        }
+        this._render(this._lastStatuses || []);
+      });
+    });
   }
 
   _renderError(err) {
@@ -191,24 +219,41 @@ class SensirCard extends HTMLElement {
         align-items: start;
       }
       .hh-card {
-        display: block;
         background: var(--card-background-color, #fff);
         border: 1px solid var(--divider-color, #e0e0e0);
         border-left: 6px solid #757575;
         border-radius: 8px;
-        padding: 12px;
-        text-decoration: none;
-        color: var(--primary-text-color, #212121);
+        overflow: hidden;
       }
-      .hh-name { font-weight: 700; font-size: 1.05em; margin-bottom: 4px; }
-      .hh-status { font-size: 0.9em; margin-bottom: 4px; }
-      .hh-meta { font-size: 0.8em; color: var(--secondary-text-color, #757575); margin-bottom: 8px; }
+      .hh-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 4px;
+        padding: 12px;
+      }
+      .hh-link { flex: 1; min-width: 0; text-decoration: none; color: inherit; }
+      .hh-name { font-weight: 700; font-size: 1.05em; margin-bottom: 4px; color: var(--primary-text-color, #212121); }
+      .hh-status { font-size: 0.9em; margin-bottom: 4px; color: var(--primary-text-color, #212121); }
+      .hh-meta { font-size: 0.8em; color: var(--secondary-text-color, #757575); }
+      .hh-toggle {
+        flex-shrink: 0;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--secondary-text-color, #757575);
+        font-size: 1.1em;
+        line-height: 1;
+        padding: 2px 4px;
+      }
+      .hh-toggle:hover { color: var(--primary-text-color, #212121); }
       .hh-events {
         list-style: none;
         margin: 0;
-        padding: 8px 0 0;
+        padding: 8px 12px 12px;
         border-top: 1px solid var(--divider-color, #e0e0e0);
         font-size: 0.8em;
+        color: var(--primary-text-color, #212121);
       }
       .hh-events li { padding: 1px 0; }
       .dim { color: var(--secondary-text-color, #757575); }
@@ -223,7 +268,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "sensir-card",
   name: "SensIR",
-  description: "Ampel-Übersicht der sensir-Haushalte mit den letzten Ereignissen",
+  description: "Ampel-Übersicht der sensir-Haushalte mit auf-/zuklappbaren letzten Ereignissen",
 });
 
 console.info(`%c SENSIR-CARD %c v${SENSIR_CARD_VERSION} `, "color: #fff; background: #e20074; font-weight: 700;", "color: #e20074; background: #fff; font-weight: 700;");

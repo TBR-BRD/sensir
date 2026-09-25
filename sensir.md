@@ -565,11 +565,12 @@ Eigene Custom Card, zeigt eine Ampel-Übersicht aller sensir-Haushalte direkt
 in einem Home-Assistant-Dashboard — analog zur sensir-eigenen Web-Oberfläche,
 aber innerhalb von HA. Fragt die sensir-REST-API **direkt aus dem Browser**
 ab (kein eigener Home-Assistant-Custom-Component/Sensor nötig), pollt alle
-`refresh_seconds` (Standard 60) neu. Jede Haushalts-Kachel zeigt Status +
-die letzten `event_limit` Ereignisse (Standard 10, `GET
-/api/households/{id}/events?limit=`); Klick auf die Kachel öffnet die
-vollständige sensir-Seite (Zeitfenster bearbeiten, Testnachricht senden,
-Sensor anlegen, …) in einem neuen Tab.
+`refresh_seconds` (Standard 60) neu. Jede Haushalts-Kachel startet
+zugeklappt (nur Status); ein kleiner Pfeil klappt die letzten
+`event_limit` Ereignisse auf/zu (Standard 10, `GET
+/api/households/{id}/events?limit=`), ohne HA zu verlassen. Klick auf den
+Haushaltsnamen öffnet die vollständige sensir-Seite (Zeitfenster
+bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
 
 **Setup:**
 1. **CORS auf dem sensir-Server freischalten** — sonst blockt der Browser
