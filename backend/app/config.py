@@ -59,6 +59,15 @@ class Settings(BaseSettings):
     weekly_export_day_of_week: str = "sun"  # APScheduler-Cron: mon..sun
     weekly_export_hour_utc: int = 5
 
+    # Komma-getrennte Liste erlaubter Browser-Origins für CORS, z. B.
+    # http://192.168.42.179:8123 für einen Lovelace-Custom-Card-Zugriff aus
+    # Home Assistant. Leer (Standard) = kein CORS, nur serverseitige Zugriffe.
+    cors_allow_origins: str = ""
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
     @property
     def mqtt_topics(self) -> list[str]:
         return [t.strip() for t in self.mqtt_result_topic_filters.split(",") if t.strip()]

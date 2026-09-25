@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Home Assistant Lovelace-Karte (`www/sensir-card.js`)
+
+Neue Custom Card für Home Assistant: Ampel-Übersicht aller sensir-Haushalte
+direkt in einem HA-Dashboard, analog zur sensir-eigenen Web-Oberfläche.
+Fragt die sensir-REST-API direkt aus dem Browser ab (kein eigener
+Home-Assistant-Custom-Component nötig), pollt periodisch neu, Klick öffnet
+die sensir-Haushaltsseite. Setup/Konfiguration siehe `sensir.md` 9.1.
+
+- `CORS_ALLOW_ORIGINS` (neue Setting in `app/config.py`/`.env`): Komma-Liste
+  erlaubter Browser-Origins, per FastAPI `CORSMiddleware` nur auf GET
+  beschränkt — leer per Default (kein CORS).
+
 ### Wöchentlicher CSV-Datenexport per Telegram (für eigenes ML-Training)
 
 Neues `app/export.py`: einmal pro Woche (Standard: sonntags 5 Uhr UTC,

@@ -558,6 +558,41 @@ uvicorn app.main:app --reload
 - **Pulsar-/Shelly-WS-Format**: noch nicht gegen echte Geräte verifiziert
   (nächster praktischer Schritt).
 
+## 9.1 Home Assistant Lovelace-Karte (`www/sensir-card.js`)
+
+Eigene Custom Card, zeigt eine Ampel-Übersicht aller sensir-Haushalte direkt
+in einem Home-Assistant-Dashboard — analog zur sensir-eigenen Web-Oberfläche,
+aber innerhalb von HA. Fragt die sensir-REST-API **direkt aus dem Browser**
+ab (kein eigener Home-Assistant-Custom-Component/Sensor nötig), pollt alle
+`refresh_seconds` (Standard 60) neu, Klick auf eine Karte öffnet die
+zugehörige sensir-Haushaltsseite in einem neuen Tab.
+
+**Setup:**
+1. **CORS auf dem sensir-Server freischalten** — sonst blockt der Browser
+   die Cross-Origin-Requests von der HA-Instanz zur sensir-API:
+   ```dotenv
+   CORS_ALLOW_ORIGINS=http://192.168.42.179:8123
+   ```
+   (Origin der jeweiligen HA-Instanz, kommagetrennt bei mehreren.)
+2. `www/sensir-card.js` nach `/config/www/sensir-card/sensir-card.js` auf dem
+   HA-Server kopieren (SSH-Add-on, `scp`/`sftp` deaktiviert — Pattern:
+   `ssh hassio@<ha-host> 'sudo tee /config/www/sensir-card/sensir-card.js' < www/sensir-card.js`).
+3. Als Lovelace-Ressource eintragen: **Einstellungen → Dashboards → oben
+   rechts (⋮) → Ressourcen → Ressource hinzufügen** —
+   URL `/local/sensir-card/sensir-card.js?v=1`, Typ „JavaScript-Modul“.
+   (Cache-Busting: bei jedem Karten-Update die `?v=`-Zahl hochzählen.)
+4. Karte zu einem Dashboard hinzufügen: **Dashboard bearbeiten → Karte
+   hinzufügen → „SensIR“** (oder manuell per YAML, siehe unten).
+
+**Konfiguration:**
+```yaml
+type: custom:sensir-card
+base_url: http://192.168.42.132:8000   # erforderlich - Adresse des sensir-Servers
+title: SensIR                          # optional
+refresh_seconds: 60                    # optional
+household_ids: [1, 2]                  # optional, sonst alle Haushalte
+```
+
 ## 10. Repo-Layout
 
 ```
