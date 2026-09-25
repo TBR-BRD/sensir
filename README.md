@@ -142,6 +142,29 @@ indem die Person dem Bot einmal schreibt und man die ID über
 `https://api.telegram.org/bot<TOKEN>/getUpdates` ausliest — ein
 Onboarding-Flow in der App fehlt hier noch bewusst (PoC-Stand).
 
+## Home Assistant Lovelace-Karte
+
+`www/sensir-card.js` zeigt eine Ampel-Übersicht aller Haushalte direkt in
+einem Home-Assistant-Dashboard — Status auf einen Blick, ein Pfeil klappt
+die letzten Ereignisse je Haushalt auf/zu, Klick auf den Namen öffnet die
+volle sensir-Seite in neuem Tab. Fragt die sensir-API direkt aus dem
+Browser ab, braucht also keine eigene HA-Integration.
+
+```yaml
+type: custom:sensir-card
+base_url: http://<sensir-host>:8000   # erforderlich
+```
+
+Setup (CORS freischalten, Datei nach `/config/www/` kopieren, als
+Lovelace-Ressource eintragen): siehe **[sensir.md, Abschnitt 9.1](sensir.md#91-home-assistant-lovelace-karte-wwwsensir-cardjs)**.
+
+## Wöchentlicher CSV-Datenexport
+
+Einmal pro Woche bekommt jeder Haushalt automatisch eine CSV mit allen
+Sensor-Rohereignissen der letzten 7 Tage per Telegram zugeschickt (Grundlage
+für eigenes ML-Training) — `WEEKLY_EXPORT_*` in `.env`, sofort auslösbar über
+`POST /api/households/{id}/export`. Details: **[sensir.md, Abschnitt 5.4](sensir.md#54-wöchentlicher-csv-rohdaten-export-appexportpy)**.
+
 ## Bekannte Lücken / nächste Schritte
 
 - **Sensor-Sicherheit**: aktuell MQTT-Benutzername/Passwort ohne TLS, und
