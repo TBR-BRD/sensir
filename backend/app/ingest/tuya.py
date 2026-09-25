@@ -106,6 +106,11 @@ class TuyaSource(PollingSource):
     def _on_pulsar(self, msg) -> None:
         try:
             payload = msg if isinstance(msg, dict) else json.loads(msg)
+            # TEMPORÄR (2026-09-25): rohe Pulsar-Nachrichten mitschreiben, um das
+            # Ereignisformat von Tuya-IPC-Kamera-Bewegungsalarmen (alarm_info_report)
+            # live zu sehen - status:[] bei normalen Geräte-Status-Abfragen, siehe
+            # sensir.md 4.2. Nach dem Test wieder entfernen.
+            logger.info("TUYA-PULSAR-DEBUG raw: %s", json.dumps(payload)[:2000])
             data = payload.get("data", payload)
             dev_id = data.get("devId") or data.get("device_id")
             status = data.get("status") or []
