@@ -292,6 +292,8 @@ die aktivierten Quellen. Jede Quelle läuft in ihrem eigenen Hintergrund-Thread
   Zusätzliche Freischaltung nötig: Projekt → **Cloud → Cloud Services →
   Video Services → „Camera Service"** abonnieren (Free Trial, $0), sonst
   bleiben Kamera-Events aus, obwohl die Messaging Rule aktiv ist.
+  **Ausführliche Schritt-für-Schritt-Anleitung mit jedem einzelnen Klick:**
+  [`docs/tuya-camera-motion-troubleshooting.md`](docs/tuya-camera-motion-troubleshooting.md).
 - **Nachrichtenformat der Pulsar-Payload hat sich geändert:** die
   `tuya-connector-python`-Doku/ältere Beispiele gehen von
   `{"data": {"devId": ..., "status": [{"code", "value"}]}}` aus — live kommt

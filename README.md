@@ -112,6 +112,12 @@ Die erste Migration wird beim Start automatisch ausgeführt
    # Steckdose mit Verbrauchsmessung: "config":{"room":"kueche","on_threshold_w":15}
    ```
 
+**IPC-Kameras** (Bewegungsalarme) brauchen zwei zusätzliche Freischaltungen im
+Tuya-Projekt (Messaging Rule für die Production-Umgebung + „Camera Service"
+abonnieren) und laufen intern über einen anderen Ereignis-Code/Nachrichten-
+format als normale Sensoren — ausführliche Schritt-für-Schritt-Anleitung:
+[`docs/tuya-camera-motion-troubleshooting.md`](docs/tuya-camera-motion-troubleshooting.md).
+
 ## Shelly-Geräte anbinden
 
 1. Shelly-App/Cloud → **Einstellungen → Autorisierungs-Cloud-Key**. Dort stehen

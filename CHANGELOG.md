@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Neu: ausführliches Troubleshooting-Dokument für Tuya-IPC-Kameras
+
+[`docs/tuya-camera-motion-troubleshooting.md`](docs/tuya-camera-motion-troubleshooting.md) —
+Schritt-für-Schritt-Beschreibung (mit jedem Klick in der Tuya-Konsole) der
+Fehlersuche unten, für den Fall, dass sie nochmal reproduziert werden muss
+(neues Projekt, andere Kamera). Aus `README.md` und `sensir.md` 4.2 verlinkt.
+
 ### Fix: Tuya-IPC-Kamera-Bewegungsalarme kommen jetzt an
 
 Root Cause (nach ausführlicher Live-Fehlersuche, 2026-09-25): im Tuya-Projekt
