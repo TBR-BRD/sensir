@@ -40,6 +40,13 @@ def _truthy(v, extra: set[str] = frozenset()) -> bool:
 # Tuya
 # ---------------------------------------------------------------------------
 _TUYA_MOTION = {"pir", "presence_state", "presence", "occupancy"}
+# Event-only-DPs (typisch für Tuya-IPC-Kameras): der Code kommt nur, wenn
+# gerade Bewegung erkannt wurde - kein persistenter An/Aus-Wert wie bei
+# normalen PIR-Meldern, daher ohne _truthy()-Prüfung behandelt (siehe
+# normalize_tuya). value ist ein base64-JSON-Blob mit dem Snapshot-Pfad,
+# fürs Ereignis selbst irrelevant. Live gegen eine echte Tuya-IPC-Kamera
+# verifiziert (2026-09-25).
+_TUYA_MOTION_EVENT = {"movement_detect_pic"}
 _TUYA_DOOR = {"doorcontact_state", "door_state", "contact_state"}
 _TUYA_WINDOW = {"window_state", "windowcontact_state"}
 _TUYA_SMOKE = {"smoke_sensor_state", "smoke_sensor_status", "smoke"}
@@ -60,6 +67,8 @@ def normalize_tuya(status_list: list[dict], *, on_threshold_w: float, plug_state
         elif code in _TUYA_GAS and _truthy(value, _ALARM):
             out.append(CanonEvent("gas", safety=True))
         elif code in _TUYA_MOTION and _truthy(value, {"pir", "presence", "motion"}):
+            out.append(CanonEvent("motion"))
+        elif code in _TUYA_MOTION_EVENT:
             out.append(CanonEvent("motion"))
         elif code in _TUYA_DOOR:
             out.append(CanonEvent("door"))

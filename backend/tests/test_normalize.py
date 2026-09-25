@@ -20,6 +20,17 @@ def test_tuya_motion():
     assert [e.kind for e in ev] == ["motion"]
 
 
+def test_tuya_camera_movement_detect_pic():
+    # IPC-Kamera-Bewegungsalarm: value ist ein base64-JSON-Blob (Snapshot-Pfad),
+    # kein An/Aus-Wert - allein das Vorhandensein des Codes zählt als Ereignis.
+    # Format live gegen eine echte Kamera verifiziert (2026-09-25).
+    ev = normalize_tuya(
+        [{"code": "movement_detect_pic", "value": "eyJ2IjoiMy4wIn0="}],
+        on_threshold_w=10, plug_state={}, key="d",
+    )
+    assert [e.kind for e in ev] == ["motion"]
+
+
 def test_tuya_plug_edges():
     st: dict = {}
     assert normalize_tuya([{"code": "cur_power", "value": 20}], on_threshold_w=10, plug_state=st, key="p") == []

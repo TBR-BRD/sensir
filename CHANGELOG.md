@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Fix: Tuya-IPC-Kamera-Bewegungsalarme kommen jetzt an
+
+Root Cause (nach ausführlicher Live-Fehlersuche, 2026-09-25): im Tuya-Projekt
+existierte **keine Messaging Rule für die Production-Umgebung** — ohne Regel
+liefert Pulsar grundsätzlich gar keine Nachrichten, unabhängig vom
+Gerätetyp. Zusätzlich brauchen IPC-Kameras eine eigene Service-Freischaltung
+(„Camera Service", Free Trial) und melden Bewegung über einen anderen
+DP-Code (`movement_detect_pic`) und ein anderes Pulsar-Nachrichtenformat
+(`bizData`/`properties` statt `data`/`status`) als normale Tuya-Geräte.
+
+- `app/ingest/tuya.py`: `_on_pulsar()` versteht jetzt beide Nachrichtenformen
+  (`data`/`status` **und** `bizData`/`properties`).
+- `app/ingest/normalize.py`: neuer `_TUYA_MOTION_EVENT`-Codepfad für
+  event-only-DPs wie `movement_detect_pic` (kein An/Aus-Wert wie bei
+  normalen PIR-Meldern - das bloße Eintreffen zählt als Bewegungsereignis).
+- Neuer Test `test_tuya_camera_movement_detect_pic`.
+- `sensir.md` 4.2 um die komplette Diagnose ergänzt (Messaging Rules
+  Test-/Production-Trennung, Camera-Service-Abo, Nachrichtenformat).
+
 ### sensir-card v1.3.0: Kacheln starten zugeklappt, kleiner Auf-/Zu-Pfeil
 
 Feedback nach v1.2.0: die immer sichtbare Ereignisliste war zu viel auf

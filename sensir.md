@@ -266,8 +266,42 @@ die aktivierten Quellen. Jede Quelle läuft in ihrem eigenen Hintergrund-Thread
   too much"`), braucht **keine** App-Account-UID mehr. `TUYA_APP_ACCOUNT_UID`
   bleibt trotzdem nötig für den QR-Code-Verknüpfungsschritt beim Einrichten
   (Abschnitt 4.2 Setup-Schritt 2), nur nicht mehr fürs Geräte-Listing danach.
-- Live gegen ein echtes Tuya-Konto verifiziert (2026-09-24): REST-Polling,
-  Pulsar-Stream und Geräte-Discovery funktionieren mit obigen Einstellungen.
+- **Pulsar liefert ohne „Messaging Rule" gar nichts:** selbst mit aktiviertem
+  Message Service (siehe oben) kommt **keine einzige** Pulsar-Nachricht an,
+  solange im Projekt unter **Message Service → Messaging Rules → Production
+  Environment** keine Regel existiert und **aktiviert** ist (Standard:
+  „No messaging rules apply to the production environment, no messages will
+  be pushed."). Regel anlegen: **Create Messaging Rules** → Bedingung
+  `BizCode (Message Type) In [devicePropertyMessage, deviceEventMessage,
+  event_notify]` → **Release Rule** → danach den Schalter links auf „Enabled"
+  stellen. **Wichtig:** es gibt getrennte Regeln für **Test Environment**
+  und **Production Environment** — unser Code nutzt `TuyaCloudPulsarTopic.PROD`
+  (`app/ingest/tuya.py`), also muss die Regel in **Production Environment**
+  stehen, nicht nur im Test-Tab. Nach dem Aktivieren den Backend-Container
+  neu starten, damit die Pulsar-Verbindung neu aufgebaut wird.
+- **IPC-Kamera-Bewegungsalarme** (`movement_detect_pic`, DP 115): normale
+  Tuya-Geräte melden Status-Änderungen über die üblichen DP-Codes (siehe
+  Tabelle in 4.4), aber Kameras liefern `status: []` auf
+  `/v1.0/devices/{id}/status` (`code 2003 "function not support"`) — sie
+  laufen komplett am normalen Geräte-Status-System vorbei. Bewegungsalarme
+  kommen stattdessen als eigener Pulsar-Nachrichtentyp mit dem Code
+  `movement_detect_pic`, `value` ist ein **base64-kodierter JSON-Blob** mit
+  dem Pfad zum Schnappschuss in Tuyas Cloud-Speicher (für die reine
+  Bewegungserkennung irrelevant — schon das Eintreffen des Codes zählt als
+  Ereignis, siehe `_TUYA_MOTION_EVENT` in `app/ingest/normalize.py`).
+  Zusätzliche Freischaltung nötig: Projekt → **Cloud → Cloud Services →
+  Video Services → „Camera Service"** abonnieren (Free Trial, $0), sonst
+  bleiben Kamera-Events aus, obwohl die Messaging Rule aktiv ist.
+- **Nachrichtenformat der Pulsar-Payload hat sich geändert:** die
+  `tuya-connector-python`-Doku/ältere Beispiele gehen von
+  `{"data": {"devId": ..., "status": [{"code", "value"}]}}` aus — live kommt
+  aber `{"bizCode": "devicePropertyMessage", "bizData": {"devId": ...,
+  "properties": [{"code", "dpId", "time", "value"}]}}` an. `_on_pulsar()`
+  in `app/ingest/tuya.py` versteht inzwischen beide Formen.
+- Live gegen ein echtes Tuya-Konto verifiziert (2026-09-25, inkl. Camera
+  Service + Messaging Rules): REST-Polling, Pulsar-Stream (normale Geräte
+  **und** IPC-Kamera-Bewegungsalarme) sowie Geräte-Discovery funktionieren
+  mit obigen Einstellungen.
 
 ### 4.3 Shelly Cloud (`shelly.py`)
 
