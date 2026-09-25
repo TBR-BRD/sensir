@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     weekly_export_hour_utc: int = 5
 
     # Komma-getrennte Liste erlaubter Browser-Origins für CORS, z. B.
-    # http://192.168.42.179:8123 für einen Lovelace-Custom-Card-Zugriff aus
+    # http://192.168.1.50:8123 für einen Lovelace-Custom-Card-Zugriff aus
     # Home Assistant. Leer (Standard) = kein CORS, nur serverseitige Zugriffe.
     cors_allow_origins: str = ""
 

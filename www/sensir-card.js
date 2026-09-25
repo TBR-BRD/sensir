@@ -11,7 +11,7 @@ const SENSIR_CARD_VERSION = "1.3.0";
  *
  * Konfiguration (Lovelace YAML):
  *   type: custom:sensir-card
- *   base_url: http://192.168.42.132:8000   # erforderlich
+ *   base_url: http://192.168.1.100:8000   # erforderlich
  *   title: SensIR                          # optional
  *   refresh_seconds: 60                    # optional
  *   event_limit: 10                        # optional, Standard 10
@@ -34,7 +34,7 @@ class SensirCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { base_url: "http://192.168.42.132:8000", title: "SensIR" };
+    return { base_url: "http://192.168.1.100:8000", title: "SensIR" };
   }
 
   getCardSize() {
@@ -43,7 +43,7 @@ class SensirCard extends HTMLElement {
 
   setConfig(config) {
     if (!config.base_url) {
-      throw new Error("sensir-card: base_url fehlt (z. B. http://192.168.42.132:8000)");
+      throw new Error("sensir-card: base_url fehlt (z. B. http://192.168.1.100:8000)");
     }
     this._config = {
       title: "SensIR",

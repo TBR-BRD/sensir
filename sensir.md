@@ -612,7 +612,7 @@ bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
 1. **CORS auf dem sensir-Server freischalten** — sonst blockt der Browser
    die Cross-Origin-Requests von der HA-Instanz zur sensir-API:
    ```dotenv
-   CORS_ALLOW_ORIGINS=http://192.168.42.179:8123
+   CORS_ALLOW_ORIGINS=http://192.168.1.50:8123
    ```
    (Origin der jeweiligen HA-Instanz, kommagetrennt bei mehreren.)
 2. `www/sensir-card.js` nach `/config/www/sensir-card/sensir-card.js` auf dem
@@ -628,7 +628,7 @@ bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
 **Konfiguration:**
 ```yaml
 type: custom:sensir-card
-base_url: http://192.168.42.132:8000   # erforderlich - Adresse des sensir-Servers
+base_url: http://192.168.1.100:8000   # erforderlich - Adresse des sensir-Servers
 title: SensIR                          # optional
 refresh_seconds: 60                    # optional
 event_limit: 10                        # optional - Anzahl angezeigter Ereignisse pro Haushalt

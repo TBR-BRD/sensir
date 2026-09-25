@@ -105,7 +105,7 @@ Normales Tuya-Gerät (Beispiel: SD-Karten-Status einer anderen Kamera):
 {
   "bizCode": "devicePropertyMessage",
   "bizData": {
-    "devId": "bffa3e207713088390nflw",
+    "devId": "<device-id>",
     "dataId": "00065C52D82D65553A5512716A140A0C",
     "productId": "rogprwflblumx2co",
     "properties": [
@@ -122,7 +122,7 @@ Bewegungsalarm der Test-Kamera:
 {
   "bizCode": "devicePropertyMessage",
   "bizData": {
-    "devId": "bf2794ae02e44431dfinq1",
+    "devId": "<device-id>",
     "dataId": "00065C52DC74B28295BBF8616A1F0033",
     "productId": "xjuuufndz8qezkud",
     "properties": [
@@ -157,7 +157,7 @@ ist).
 ## Verifikation
 
 Testkamera testweise als Sensor angelegt
-(`POST /api/sensors {"household_id":1,"kind":"tuya","external_id":"bf2794ae02e44431dfinq1",...}`),
+(`POST /api/sensors {"household_id":1,"kind":"tuya","external_id":"<device-id>",...}`),
 zweimal vor der Kamera bewegt, `GET /api/households/1/events?limit=5` zeigte
 beide Ereignisse korrekt als `kind: motion`. Test-Sensor danach wieder
 gelöscht (gehörte nicht zum Haushalt).
