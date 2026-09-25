@@ -358,12 +358,38 @@ ausgeschlossen und stattdessen sofort alarmiert.
 ### 5.3 Telegram (`alerting/telegram.py`)
 
 - `send_telegram_message(chat_id, text)` — einfacher `POST` an die Bot-API.
+- `send_telegram_document(chat_id, filename, content, caption)` — schickt
+  eine Datei (`sendDocument`, multipart), genutzt vom Wochenexport (5.4).
 - Bot bei [@BotFather](https://t.me/BotFather) anlegen, Token in
   `TELEGRAM_BOT_TOKEN`.
 - `Contact.telegram_chat_id` wird aktuell **manuell** ermittelt: Person
   schreibt dem Bot einmal, `chat_id` über
   `https://api.telegram.org/bot<TOKEN>/getUpdates` auslesen. Kein
   Self-Service-Onboarding (bewusste PoC-Lücke, siehe README).
+
+### 5.4 Wöchentlicher CSV-Rohdaten-Export (`app/export.py`)
+
+Für eigenes ML-Training außerhalb von sensir (das eingebaute Modell in
+5.2 ist bewusst nur ein 1D-KernelDensity über die Tageszeit) exportiert
+`export_and_send_all_households()` einmal pro Woche pro aktivem Haushalt
+alle `SensorEvent`s der letzten 7 Tage als CSV und schickt sie per Telegram
+(`sendDocument`) an alle aktiven Kontakte mit `telegram_chat_id`.
+
+- **Format: CSV**, eine Zeile pro Ereignis. Gewählt statt JSON/Parquet, weil
+  es ohne zusätzliche Abhängigkeiten direkt in pandas/Excel/Numbers lesbar
+  ist und für die zu erwartende Datenmenge (paar hundert Events/Woche/
+  Haushalt) reicht — bei Bedarf trivial in jedes andere Format konvertierbar.
+- **Spalten**: `received_at_utc`, `received_at_local` (Haushalts-Zeitzone),
+  `sensor_id`, `sensor_name`, `sensor_kind`, `sensor_external_id_or_topic`,
+  `event_kind`, `value`, `safety`.
+- **Dateiname**: `sensir_<haushalt-slug>_<von>_<bis>.csv`.
+- **Zeitplan**: `WEEKLY_EXPORT_ENABLED` (Standard `true`),
+  `WEEKLY_EXPORT_DAY_OF_WEEK` (APScheduler-Cron-Format, Standard `sun`),
+  `WEEKLY_EXPORT_HOUR_UTC` (Standard `5`).
+- **Sofort auslösen** (zum Testen oder außerhalb des Wochenrhythmus):
+  `POST /api/households/{id}/export?days=7`.
+- Jeder Versand wird in `alert_log` protokolliert (Erfolg/Misserfolg pro
+  Kontakt), analog zur Kontakt-Testnachricht.
 
 ## 6. API-Referenz (`/api`, siehe auch `/docs` für Swagger)
 
@@ -381,6 +407,7 @@ ausgeschlossen und stattdessen sofort alarmiert.
 | `/api/households/{id}/windows` | GET/POST | Beobachtungsfenster |
 | `/api/households/{id}/windows/{id}` | PATCH/DELETE | Fenster ändern (setzt `source=manual`) / löschen |
 | `/api/households/{id}/status` | GET | aktueller Status (letztes Ereignis, Tagesereignisse, aktives Fenster, letzter Check, `household_active`) |
+| `/api/households/{id}/export` | POST | löst sofort einen CSV-Datenexport aus (`?days=7`), statt auf den wöchentlichen Scheduler-Job zu warten (5.4) |
 
 Dashboard (kein API, HTML): `/` (Ampel-Übersicht, pausierte Haushalte gedimmt),
 `/households/{id}` (Detail — Pause-Toggle, Kontakt-Testnachricht,
@@ -430,6 +457,10 @@ DEFAULT_WINDOW_END=23:59
 DEFAULT_MIN_ACTIONS=2
 ML_MIN_SAMPLES=200
 ML_TRAIN_HOUR_UTC=3
+
+WEEKLY_EXPORT_ENABLED=true
+WEEKLY_EXPORT_DAY_OF_WEEK=sun
+WEEKLY_EXPORT_HOUR_UTC=5
 ```
 
 ## 8. Deployment

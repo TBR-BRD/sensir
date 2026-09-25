@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     ml_train_hour_utc: int = 3
     ml_model_dir: str = "app/ml/models"
 
+    # -- Wöchentlicher CSV-Rohdaten-Export für eigenes ML-Training ------
+    # (nicht zu verwechseln mit dem eingebauten KernelDensity-Modell oben)
+    weekly_export_enabled: bool = True
+    weekly_export_day_of_week: str = "sun"  # APScheduler-Cron: mon..sun
+    weekly_export_hour_utc: int = 5
+
     @property
     def mqtt_topics(self) -> list[str]:
         return [t.strip() for t in self.mqtt_result_topic_filters.split(",") if t.strip()]

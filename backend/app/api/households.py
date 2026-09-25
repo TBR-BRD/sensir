@@ -1,10 +1,13 @@
+import datetime as dt
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.export import export_and_send
 from app.models import Household
-from app.schemas import HouseholdCreate, HouseholdOut, HouseholdUpdate
+from app.schemas import ExportResult, HouseholdCreate, HouseholdOut, HouseholdUpdate
 
 router = APIRouter(prefix="/households", tags=["households"])
 
@@ -41,6 +44,27 @@ def update_household(household_id: int, payload: HouseholdUpdate, db: Session = 
     db.commit()
     db.refresh(household)
     return household
+
+
+@router.post("/{household_id}/export", response_model=ExportResult)
+def trigger_export(household_id: int, days: int = 7, db: Session = Depends(get_db)):
+    """Löst sofort einen CSV-Datenexport aus (statt auf den wöchentlichen
+    Scheduler-Job zu warten, siehe app/export.py) - nützlich zum Testen und
+    für einen Export außerhalb des normalen Wochenrhythmus."""
+    household = db.get(Household, household_id)
+    if household is None:
+        raise HTTPException(404, "household not found")
+    until = dt.datetime.now(dt.timezone.utc)
+    since = until - dt.timedelta(days=days)
+    results = export_and_send(db, household, since, until)
+    if not results:
+        return ExportResult(sent_to=0, failed=0, detail="Kein aktiver Kontakt mit telegram_chat_id")
+    sent = sum(1 for _, ok in results if ok)
+    failed = len(results) - sent
+    return ExportResult(
+        sent_to=sent, failed=failed,
+        detail=f"{sent} von {len(results)} Kontakten erreicht" if failed else "an alle Kontakte gesendet",
+    )
 
 
 @router.delete("/{household_id}", status_code=204)

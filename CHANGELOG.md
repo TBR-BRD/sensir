@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Wöchentlicher CSV-Datenexport per Telegram (für eigenes ML-Training)
+
+Neues `app/export.py`: einmal pro Woche (Standard: sonntags 5 Uhr UTC,
+`WEEKLY_EXPORT_*`-Settings) bekommt jeder aktive Haushalt eine CSV mit allen
+Sensor-Rohereignissen der letzten 7 Tage per Telegram (`sendDocument`) an
+alle aktiven Kontakte mit `telegram_chat_id` geschickt — Grundlage für
+eigenes ML-Training außerhalb des eingebauten KernelDensity-Modells.
+
+- CSV-Format (eine Zeile pro Ereignis): `received_at_utc`,
+  `received_at_local`, `sensor_id`, `sensor_name`, `sensor_kind`,
+  `sensor_external_id_or_topic`, `event_kind`, `value`, `safety`.
+- `POST /api/households/{id}/export?days=7` löst den Export sofort aus
+  (Testen/außerhalb des Wochenrhythmus), statt auf den Scheduler zu warten.
+- `alerting/telegram.py`: neue `send_telegram_document()`.
+- Jeder Versand landet in `alert_log`, analog zur Kontakt-Testnachricht.
+
 ### Dashboard: Auto-Refresh, Zeitfenster-Formular korrigiert
 
 - **Auto-Refresh**: alle Seiten laden sich per `<meta http-equiv="refresh">`

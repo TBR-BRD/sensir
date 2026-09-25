@@ -98,6 +98,12 @@ class ContactTestResult(BaseModel):
     detail: str
 
 
+class ExportResult(BaseModel):
+    sent_to: int
+    failed: int
+    detail: str
+
+
 class ObservationWindowCreate(BaseModel):
     weekday: int | None = None
     start_time: dt.time
