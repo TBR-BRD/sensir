@@ -1,5 +1,4 @@
 import datetime as dt
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -10,8 +9,9 @@ from sqlalchemy.orm import Session
 from app.alerting.telegram import send_telegram_message
 from app.config import settings
 from app.db import get_db
-from app.models import AlertLog, Contact, Household, SensorEvent, ObservationWindow, Sensor, WindowSource
+from app.models import AlertLog, Contact, Household, ObservationWindow, Sensor, WindowSource
 from app.status_service import compute_status
+from app.status_service import recent_events as recent_events_service
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory="app/web/templates")
@@ -63,28 +63,7 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
         select(Contact).where(Contact.household_id == household_id).order_by(Contact.priority)
     ).scalars().all()
     windows = db.execute(select(ObservationWindow).where(ObservationWindow.household_id == household_id)).scalars().all()
-    tz = ZoneInfo(household.timezone)
-    rows = db.execute(
-        select(SensorEvent, Sensor)
-        .join(Sensor, Sensor.id == SensorEvent.sensor_id)
-        .where(Sensor.household_id == household_id)
-        .order_by(SensorEvent.received_at.desc())
-        .limit(20)
-    ).all()
-    # UTC (DB) -> Haushalts-Zeitzone, plus Sensorname, damit man sieht wer
-    # das Ereignis geschickt hat - vorher zeigte die Tabelle nur protocol/
-    # data_hex, die außerhalb der IR-Bridge-Quelle immer leer sind.
-    recent_events = [
-        {
-            "received_at_local": ev.received_at.astimezone(tz),
-            "sensor_name": sensor.name,
-            "kind": ev.kind,
-            "protocol": ev.protocol,
-            "data_hex": ev.data_hex,
-            "value": ev.value,
-        }
-        for ev, sensor in rows
-    ]
+    events = recent_events_service(db, household, limit=20)
     return templates.TemplateResponse(
         "household.html",
         {
@@ -94,7 +73,7 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
             "sensors": sensors,
             "contacts": contacts,
             "windows": windows,
-            "recent_events": recent_events,
+            "recent_events": events,
         },
     )
 

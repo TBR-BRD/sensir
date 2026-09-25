@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### sensir-card v1.2.0: letzte Ereignisse statt Sensoren/Kontakte
+
+Auf Nutzerwunsch die aufklappbare Sensoren/Kontakte-Ansicht aus v1.1.0
+wieder entfernt — stattdessen zeigt jede Haushalts-Kachel direkt (kein
+Klick nötig) die letzten `event_limit` Ereignisse (Standard 10), und ein
+Klick auf die Kachel öffnet wieder die vollständige sensir-Seite in einem
+neuen Tab (wie in v1.0.0).
+
+- Neuer Endpunkt `GET /api/households/{id}/events?limit=` — die
+  Ereignis-Abfrage aus der Web-Detailseite (`app/web/routes.py`) nach
+  `status_service.recent_events()` extrahiert und geteilt, statt dupliziert.
+
 ### sensir-card v1.1.0: Sensoren/Kontakte direkt in der Karte aufklappbar
 
 Klick auf eine Haushalts-Kachel öffnete bisher extern die volle sensir-Seite

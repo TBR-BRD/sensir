@@ -407,6 +407,7 @@ alle `SensorEvent`s der letzten 7 Tage als CSV und schickt sie per Telegram
 | `/api/households/{id}/windows` | GET/POST | Beobachtungsfenster |
 | `/api/households/{id}/windows/{id}` | PATCH/DELETE | Fenster ändern (setzt `source=manual`) / löschen |
 | `/api/households/{id}/status` | GET | aktueller Status (letztes Ereignis, Tagesereignisse, aktives Fenster, letzter Check, `household_active`) |
+| `/api/households/{id}/events` | GET | letzte Sensorereignisse (`?limit=`, Standard 10), neueste zuerst, Zeit bereits auf Haushalts-Zeitzone umgerechnet |
 | `/api/households/{id}/export` | POST | löst sofort einen CSV-Datenexport aus (`?days=7`), statt auf den wöchentlichen Scheduler-Job zu warten (5.4) |
 
 Dashboard (kein API, HTML): `/` (Ampel-Übersicht, pausierte Haushalte gedimmt),
@@ -564,12 +565,11 @@ Eigene Custom Card, zeigt eine Ampel-Übersicht aller sensir-Haushalte direkt
 in einem Home-Assistant-Dashboard — analog zur sensir-eigenen Web-Oberfläche,
 aber innerhalb von HA. Fragt die sensir-REST-API **direkt aus dem Browser**
 ab (kein eigener Home-Assistant-Custom-Component/Sensor nötig), pollt alle
-`refresh_seconds` (Standard 60) neu. Klick auf eine Haushalts-Kachel klappt
-**Sensoren + Kontakte direkt in der Karte** auf (`GET /api/sensors?
-household_id=`, `GET /api/households/{id}/contacts`) — kein Verlassen von
-Home Assistant nötig; ein Link am Ende der aufgeklappten Ansicht öffnet bei
-Bedarf die vollständige sensir-Seite (Zeitfenster bearbeiten, Testnachricht
-senden, Sensor anlegen, …) in einem neuen Tab.
+`refresh_seconds` (Standard 60) neu. Jede Haushalts-Kachel zeigt Status +
+die letzten `event_limit` Ereignisse (Standard 10, `GET
+/api/households/{id}/events?limit=`); Klick auf die Kachel öffnet die
+vollständige sensir-Seite (Zeitfenster bearbeiten, Testnachricht senden,
+Sensor anlegen, …) in einem neuen Tab.
 
 **Setup:**
 1. **CORS auf dem sensir-Server freischalten** — sonst blockt der Browser
@@ -594,6 +594,7 @@ type: custom:sensir-card
 base_url: http://192.168.42.132:8000   # erforderlich - Adresse des sensir-Servers
 title: SensIR                          # optional
 refresh_seconds: 60                    # optional
+event_limit: 10                        # optional - Anzahl angezeigter Ereignisse pro Haushalt
 household_ids: [1, 2]                  # optional, sonst alle Haushalte
 ```
 

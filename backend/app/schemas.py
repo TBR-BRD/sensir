@@ -152,3 +152,11 @@ class HouseholdStatusOut(BaseModel):
     last_event_at: dt.datetime | None
     events_since_midnight: int
     active_window: ObservationWindowOut | None
+
+
+class SensorEventOut(BaseModel):
+    received_at: dt.datetime  # bereits auf die Haushalts-Zeitzone umgerechnet
+    sensor_name: str
+    kind: str
+    value: float | None
+    safety: bool

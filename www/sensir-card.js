@@ -1,4 +1,4 @@
-const SENSIR_CARD_VERSION = "1.1.0";
+const SENSIR_CARD_VERSION = "1.2.0";
 
 /**
  * Custom Lovelace-Karte für sensir (https://github.com/TBR-BRD/sensir).
@@ -14,12 +14,12 @@ const SENSIR_CARD_VERSION = "1.1.0";
  *   base_url: http://192.168.42.132:8000   # erforderlich
  *   title: SensIR                          # optional
  *   refresh_seconds: 60                    # optional
+ *   event_limit: 10                        # optional, Standard 10
  *   household_ids: [1, 2]                  # optional, sonst alle Haushalte
  *
- * Klick auf eine Haushalts-Kachel klappt Sensoren + Kontakte direkt in der
- * Karte auf (kein Verlassen von Home Assistant nötig); ein Link am Ende
- * öffnet bei Bedarf die vollständige sensir-Seite (Zeitfenster bearbeiten,
- * Testnachricht senden, Sensoren anlegen, …) in einem neuen Tab.
+ * Jede Haushalts-Kachel zeigt Status + die letzten `event_limit` Ereignisse;
+ * Klick auf die Kachel öffnet die vollständige sensir-Seite (Zeitfenster
+ * bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
  */
 class SensirCard extends HTMLElement {
   constructor() {
@@ -28,7 +28,6 @@ class SensirCard extends HTMLElement {
     this._config = {};
     this._timer = null;
     this._renderGeneration = 0;
-    this._expandedIds = new Set();
   }
 
   static getStubConfig() {
@@ -46,6 +45,7 @@ class SensirCard extends HTMLElement {
     this._config = {
       title: "SensIR",
       refresh_seconds: 60,
+      event_limit: 10,
       household_ids: null,
       ...config,
     };
@@ -80,6 +80,7 @@ class SensirCard extends HTMLElement {
   async _fetchAndRender() {
     const generation = ++this._renderGeneration;
     const base = this._config.base_url;
+    const limit = Number(this._config.event_limit) || 10;
     try {
       const hhResp = await fetch(`${base}/api/households`);
       if (!hhResp.ok) throw new Error(`Haushalte: HTTP ${hhResp.status}`);
@@ -90,45 +91,27 @@ class SensirCard extends HTMLElement {
 
       const statuses = await Promise.all(
         households.map(async (h) => {
-          try {
-            const r = await fetch(`${base}/api/households/${h.id}/status`);
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            return await r.json();
-          } catch (err) {
-            return { household_id: h.id, household_name: h.name, error: true };
-          }
-        })
-      );
-
-      // Details (Sensoren + Kontakte) nur für aufgeklappte Haushalte holen,
-      // nicht bei jedem Poll für alle - spart unnötige Requests.
-      const details = {};
-      await Promise.all(
-        [...this._expandedIds].map(async (id) => {
-          details[id] = await this._fetchDetail(base, id);
+          const [statusResp, eventsResp] = await Promise.allSettled([
+            fetch(`${base}/api/households/${h.id}/status`),
+            fetch(`${base}/api/households/${h.id}/events?limit=${limit}`),
+          ]);
+          const status =
+            statusResp.status === "fulfilled" && statusResp.value.ok
+              ? await statusResp.value.json()
+              : { household_id: h.id, household_name: h.name, error: true };
+          status.events =
+            eventsResp.status === "fulfilled" && eventsResp.value.ok
+              ? await eventsResp.value.json()
+              : [];
+          return status;
         })
       );
 
       if (generation !== this._renderGeneration) return; // Karte inzwischen neu konfiguriert/entfernt
-      this._render(statuses, details);
+      this._render(statuses);
     } catch (err) {
       if (generation !== this._renderGeneration) return;
       this._renderError(err);
-    }
-  }
-
-  async _fetchDetail(base, householdId) {
-    try {
-      const [sensorsResp, contactsResp] = await Promise.all([
-        fetch(`${base}/api/sensors?household_id=${householdId}`),
-        fetch(`${base}/api/households/${householdId}/contacts`),
-      ]);
-      return {
-        sensors: sensorsResp.ok ? await sensorsResp.json() : [],
-        contacts: contactsResp.ok ? await contactsResp.json() : [],
-      };
-    } catch (err) {
-      return { error: true };
     }
   }
 
@@ -140,34 +123,40 @@ class SensirCard extends HTMLElement {
     return { color: "#757575", label: "Noch keine Auswertung" };
   }
 
-  _render(statuses, details) {
+  _formatTime(iso) {
+    return new Date(iso).toLocaleString("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  _render(statuses) {
     const base = this._config.base_url;
     const cardsHtml = statuses
       .map((s) => {
         const meta = this._statusMeta(s);
-        const expanded = this._expandedIds.has(s.household_id);
-        const lastEvent = s.last_event_at
-          ? new Date(s.last_event_at).toLocaleString("de-DE", {
-              day: "2-digit",
-              month: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "Keine Aktivität registriert";
+        const lastEvent = s.last_event_at ? this._formatTime(s.last_event_at) : "Keine Aktivität registriert";
+
+        const eventsHtml = (s.events || []).length
+          ? s.events
+              .map(
+                (e) =>
+                  `<li>${this._esc(this._formatTime(e.received_at))} — ${this._esc(e.sensor_name)}
+                   <span class="dim">(${this._esc(e.kind)})</span></li>`
+              )
+              .join("")
+          : '<li class="dim">Keine Ereignisse</li>';
 
         return `
-          <div class="hh-card${expanded ? " expanded" : ""}" style="border-left-color:${meta.color}"
-               data-id="${s.household_id}">
-            <div class="hh-head" data-toggle="${s.household_id}">
-              <div>
-                <div class="hh-name">${this._esc(s.household_name)}</div>
-                <div class="hh-status">${meta.label}</div>
-                <div class="hh-meta">${s.error ? "" : "Letzte Aktivität: " + this._esc(lastEvent)}</div>
-              </div>
-              <div class="hh-chevron">${expanded ? "▾" : "▸"}</div>
-            </div>
-            ${expanded ? this._renderDetail(base, s.household_id, details[s.household_id]) : ""}
-          </div>`;
+          <a class="hh-card" style="border-left-color:${meta.color}"
+             href="${base}/households/${s.household_id}" target="_blank" rel="noopener">
+            <div class="hh-name">${this._esc(s.household_name)}</div>
+            <div class="hh-status">${meta.label}</div>
+            <div class="hh-meta">${s.error ? "" : "Letzte Aktivität: " + this._esc(lastEvent)}</div>
+            <ul class="hh-events">${eventsHtml}</ul>
+          </a>`;
       })
       .join("");
 
@@ -176,59 +165,6 @@ class SensirCard extends HTMLElement {
       <ha-card header="${this._esc(this._config.title)}">
         <div class="grid">${cardsHtml || '<p class="empty">Keine Haushalte angelegt.</p>'}</div>
       </ha-card>`;
-
-    this._attachHandlers();
-  }
-
-  _renderDetail(base, householdId, detail) {
-    if (!detail) return `<div class="hh-detail"><p class="loading">Lädt …</p></div>`;
-    if (detail.error) return `<div class="hh-detail"><p class="error">Details nicht erreichbar.</p></div>`;
-
-    const sensorsHtml = detail.sensors.length
-      ? detail.sensors
-          .map(
-            (sn) =>
-              `<li>${this._esc(sn.name)} <span class="dim">— ${this._esc(sn.kind)}</span>${
-                sn.is_active ? "" : ' <span class="dim">(inaktiv)</span>'
-              }</li>`
-          )
-          .join("")
-      : '<li class="dim">Keine Sensoren</li>';
-
-    const contactsHtml = detail.contacts.length
-      ? detail.contacts
-          .map((c) => `<li>${this._esc(c.name)}${c.telegram_chat_id ? " — Telegram" : ""}</li>`)
-          .join("")
-      : '<li class="dim">Keine Kontakte</li>';
-
-    return `
-      <div class="hh-detail">
-        <div class="hh-detail-col">
-          <div class="hh-detail-title">Sensoren</div>
-          <ul>${sensorsHtml}</ul>
-        </div>
-        <div class="hh-detail-col">
-          <div class="hh-detail-title">Kontakte</div>
-          <ul>${contactsHtml}</ul>
-        </div>
-        <a class="hh-detail-link" href="${base}/households/${householdId}" target="_blank" rel="noopener">
-          Vollständige Seite öffnen (Zeitfenster, Testnachricht, Sensor hinzufügen …) ↗
-        </a>
-      </div>`;
-  }
-
-  _attachHandlers() {
-    this.shadowRoot.querySelectorAll("[data-toggle]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const id = Number(el.dataset.toggle);
-        if (this._expandedIds.has(id)) {
-          this._expandedIds.delete(id);
-        } else {
-          this._expandedIds.add(id);
-        }
-        this._fetchAndRender();
-      });
-    });
   }
 
   _renderError(err) {
@@ -255,47 +191,28 @@ class SensirCard extends HTMLElement {
         align-items: start;
       }
       .hh-card {
+        display: block;
         background: var(--card-background-color, #fff);
         border: 1px solid var(--divider-color, #e0e0e0);
         border-left: 6px solid #757575;
         border-radius: 8px;
-        overflow: hidden;
-      }
-      .hh-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 8px;
         padding: 12px;
-        cursor: pointer;
-      }
-      .hh-name { font-weight: 700; font-size: 1.05em; margin-bottom: 4px; color: var(--primary-text-color, #212121); }
-      .hh-status { font-size: 0.9em; margin-bottom: 4px; color: var(--primary-text-color, #212121); }
-      .hh-meta { font-size: 0.8em; color: var(--secondary-text-color, #757575); }
-      .hh-chevron { color: var(--secondary-text-color, #757575); font-size: 1.1em; line-height: 1; }
-      .hh-detail {
-        border-top: 1px solid var(--divider-color, #e0e0e0);
-        padding: 10px 12px 12px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        font-size: 0.85em;
-      }
-      .hh-detail-col { min-width: 120px; flex: 1; }
-      .hh-detail-title { font-weight: 700; margin-bottom: 4px; color: var(--primary-text-color, #212121); }
-      .hh-detail ul { list-style: none; margin: 0; padding: 0; color: var(--primary-text-color, #212121); }
-      .hh-detail li { padding: 1px 0; }
-      .dim { color: var(--secondary-text-color, #757575); }
-      .hh-detail-link {
-        display: block;
-        width: 100%;
-        margin-top: 8px;
-        color: var(--primary-color, #e20074);
         text-decoration: none;
-        font-size: 0.85em;
+        color: var(--primary-text-color, #212121);
       }
-      .hh-detail-link:hover { text-decoration: underline; }
-      .loading, .empty, .error { padding: 4px 0; color: var(--secondary-text-color, #757575); }
+      .hh-name { font-weight: 700; font-size: 1.05em; margin-bottom: 4px; }
+      .hh-status { font-size: 0.9em; margin-bottom: 4px; }
+      .hh-meta { font-size: 0.8em; color: var(--secondary-text-color, #757575); margin-bottom: 8px; }
+      .hh-events {
+        list-style: none;
+        margin: 0;
+        padding: 8px 0 0;
+        border-top: 1px solid var(--divider-color, #e0e0e0);
+        font-size: 0.8em;
+      }
+      .hh-events li { padding: 1px 0; }
+      .dim { color: var(--secondary-text-color, #757575); }
+      .empty, .error { padding: 16px; color: var(--secondary-text-color, #757575); }
     `;
   }
 }
@@ -306,7 +223,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "sensir-card",
   name: "SensIR",
-  description: "Ampel-Übersicht der sensir-Haushalte (Status, Sensoren, Kontakte)",
+  description: "Ampel-Übersicht der sensir-Haushalte mit den letzten Ereignissen",
 });
 
 console.info(`%c SENSIR-CARD %c v${SENSIR_CARD_VERSION} `, "color: #fff; background: #e20074; font-weight: 700;", "color: #e20074; background: #fff; font-weight: 700;");

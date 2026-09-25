@@ -58,3 +58,30 @@ def compute_status(db: Session, household: Household) -> HouseholdStatusOut:
         events_since_midnight=events_since_midnight,
         active_window=window,
     )
+
+
+def recent_events(db: Session, household: Household, limit: int = 20) -> list[dict]:
+    """Die letzten `limit` SensorEvents des Haushalts, angereichert um den
+    Sensornamen und auf die Haushalts-Zeitzone umgerechnet. Geteilt zwischen
+    der Web-Detailseite (app/web/routes.py) und der JSON-API
+    (app/api/events.py, u. a. für die Home-Assistant-Lovelace-Karte)."""
+    tz = ZoneInfo(household.timezone)
+    rows = db.execute(
+        select(SensorEvent, Sensor)
+        .join(Sensor, Sensor.id == SensorEvent.sensor_id)
+        .where(Sensor.household_id == household.id)
+        .order_by(SensorEvent.received_at.desc())
+        .limit(limit)
+    ).all()
+    return [
+        {
+            "received_at_local": ev.received_at.astimezone(tz),
+            "sensor_name": sensor.name,
+            "kind": ev.kind,
+            "protocol": ev.protocol,
+            "data_hex": ev.data_hex,
+            "value": ev.value,
+            "safety": ev.safety,
+        }
+        for ev, sensor in rows
+    ]
