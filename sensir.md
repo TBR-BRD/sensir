@@ -397,7 +397,7 @@ alle `SensorEvent`s der letzten 7 Tage als CSV und schickt sie per Telegram
 |---|---|---|
 | `/api/households` | GET/POST | Haushalte |
 | `/api/households/{id}` | PATCH/DELETE | Haushalt ändern (u. a. `is_active`) / löschen (Cascade auf Sensoren, Events, Kontakte, Fenster) |
-| `/api/sensors` | GET/POST | Sensoren; POST braucht `kind` + (`mqtt_topic` **oder** `external_id`) |
+| `/api/sensors` | GET/POST | Sensoren (GET optional `?household_id=`); POST braucht `kind` + (`mqtt_topic` **oder** `external_id`) |
 | `/api/sensors/{id}` | PATCH/DELETE | Sensor ändern (`name`, `config`, `is_active` - **nicht** `kind`/`mqtt_topic`/`external_id`, dafür löschen+neu anlegen) / löschen |
 | `/api/sources/tuya/devices` | GET | Tuya-Cloud-Geräte des verknüpften Kontos |
 | `/api/sources/shelly/devices` | GET | Shelly-Cloud-Geräte des Kontos |
@@ -564,8 +564,12 @@ Eigene Custom Card, zeigt eine Ampel-Übersicht aller sensir-Haushalte direkt
 in einem Home-Assistant-Dashboard — analog zur sensir-eigenen Web-Oberfläche,
 aber innerhalb von HA. Fragt die sensir-REST-API **direkt aus dem Browser**
 ab (kein eigener Home-Assistant-Custom-Component/Sensor nötig), pollt alle
-`refresh_seconds` (Standard 60) neu, Klick auf eine Karte öffnet die
-zugehörige sensir-Haushaltsseite in einem neuen Tab.
+`refresh_seconds` (Standard 60) neu. Klick auf eine Haushalts-Kachel klappt
+**Sensoren + Kontakte direkt in der Karte** auf (`GET /api/sensors?
+household_id=`, `GET /api/households/{id}/contacts`) — kein Verlassen von
+Home Assistant nötig; ein Link am Ende der aufgeklappten Ansicht öffnet bei
+Bedarf die vollständige sensir-Seite (Zeitfenster bearbeiten, Testnachricht
+senden, Sensor anlegen, …) in einem neuen Tab.
 
 **Setup:**
 1. **CORS auf dem sensir-Server freischalten** — sonst blockt der Browser

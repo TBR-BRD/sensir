@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### sensir-card v1.1.0: Sensoren/Kontakte direkt in der Karte aufklappbar
+
+Klick auf eine Haushalts-Kachel öffnete bisher extern die volle sensir-Seite
+(neuer Tab, Kontextwechsel raus aus Home Assistant). Jetzt klappt ein Klick
+Sensoren + Kontakte direkt in der Karte auf; der externe Link bleibt als
+Fallback für Aktionen, die die Karte bewusst nicht dupliziert (Zeitfenster
+bearbeiten, Testnachricht senden, Sensor anlegen).
+
+- `GET /api/sensors` bekommt einen optionalen `?household_id=`-Filter
+  (vorher immer alle Sensoren aller Haushalte).
+
 ### Home Assistant Lovelace-Karte (`www/sensir-card.js`)
 
 Neue Custom Card für Home Assistant: Ampel-Übersicht aller sensir-Haushalte

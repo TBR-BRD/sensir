@@ -11,8 +11,11 @@ router = APIRouter(prefix="/sensors", tags=["sensors"])
 
 
 @router.get("", response_model=list[SensorOut])
-def list_sensors(db: Session = Depends(get_db)):
-    return db.execute(select(Sensor)).scalars().all()
+def list_sensors(household_id: int | None = None, db: Session = Depends(get_db)):
+    query = select(Sensor)
+    if household_id is not None:
+        query = query.where(Sensor.household_id == household_id)
+    return db.execute(query).scalars().all()
 
 
 @router.post("", response_model=SensorOut, status_code=201)
