@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Fix: automatischer Neustart bei stillem Einfrieren des Backends
+
+Live beobachtet (2026-09-28): der Backend-Prozess fror nach einem
+DNS-Ausfall offenbar komplett ein — kein Absturz, aber alle Hintergrund-
+Threads (Shelly-Polling, APScheduler, Tuya-Pulsar) standen über zwei
+Stunden lang unbemerkt still, während der HTTP-Server selbst weiter
+normal auf Anfragen antwortete (`docker ps` zeigte "running", `GET /`
+lieferte 200 OK) — dadurch blieben auch die Ergebnisse aus der
+Tuya-Kamera-Fehlersuche vom vorherigen Eintrag unbestätigt, bis der
+Container manuell neu gestartet wurde.
+
+- Neues `app/health.py`: unabhängiger Minuten-Heartbeat-Job
+  (`scheduler.py`) + `GET /healthz` (503, sobald der Heartbeat älter als
+  5 Minuten ist).
+- `backend/Dockerfile`: `HEALTHCHECK` gegen `/healthz`.
+- `docker-compose.yml`: neuer `autoheal`-Sidecar (`willfarrell/autoheal`),
+  startet den `backend`-Container automatisch neu, sobald der
+  Docker-Healthcheck "unhealthy" meldet — Docker selbst tut das bei einem
+  reinen Healthcheck-Fail nicht von sich aus.
+- `sensir.md` 8.1 (neu).
+
 ### Neu: ausführliches Troubleshooting-Dokument für Tuya-IPC-Kameras
 
 [`docs/tuya-camera-motion-troubleshooting.md`](docs/tuya-camera-motion-troubleshooting.md) —

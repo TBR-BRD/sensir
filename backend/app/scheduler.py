@@ -4,6 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from app import health
 from app.alerting.engine import run_periodic_check
 from app.config import settings
 from app.db import session_scope
@@ -26,6 +27,16 @@ def _weekly_export_job() -> None:
 
 
 def start() -> None:
+    # Leichter, unabhängiger Heartbeat-Job für /healthz (siehe app/health.py)
+    # - erkennt ein stilles Einfrieren des Prozesses (live beobachtet
+    # 2026-09-28: alle Hintergrund-Threads standen 2h lang, ohne dass der
+    # HTTP-Server das gemerkt hätte oder der Container abgestürzt wäre).
+    scheduler.add_job(
+        health.touch,
+        trigger=IntervalTrigger(minutes=1),
+        id="heartbeat",
+        replace_existing=True,
+    )
     scheduler.add_job(
         run_periodic_check,
         trigger=IntervalTrigger(minutes=settings.check_interval_minutes),

@@ -1,11 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app import scheduler
+from app import health, scheduler
 from app.api import router as api_router
 from app.config import settings
 from app.ingest import registry
@@ -37,3 +37,17 @@ if settings.cors_origins:
 app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
 app.include_router(api_router)
 app.include_router(web_router)
+
+
+@app.get("/healthz", include_in_schema=False)
+def healthz(response: Response):
+    """Für Docker HEALTHCHECK (Dockerfile) + den autoheal-Sidecar in
+    docker-compose.yml - meldet 503, sobald der Heartbeat-Scheduler-Job zu
+    lange nicht mehr lief (siehe app/health.py), damit ein stilles
+    Einfrieren des Prozesses automatisch einen Neustart auslöst, statt
+    unbemerkt stundenlang liegen zu bleiben."""
+    age = health.seconds_since_heartbeat()
+    if not health.is_healthy():
+        response.status_code = 503
+        return {"status": "unhealthy", "heartbeat_age_seconds": round(age)}
+    return {"status": "ok", "heartbeat_age_seconds": round(age)}

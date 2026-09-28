@@ -17,6 +17,8 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
+    labels:
+      - "autoheal=true"
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -29,6 +31,20 @@ services:
       - ./data/ml_models:/app/app/ml/models
     command: >
       sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  # Docker allein startet einen Container NICHT neu, nur weil sein
+  # HEALTHCHECK "unhealthy" meldet (siehe backend/Dockerfile) - autoheal
+  # beobachtet den Health-Status per Docker-Socket und stößt den Neustart
+  # an. Notwendig geworden, weil der Backend-Prozess am 2026-09-28 nach
+  # einem DNS-Ausfall zwei Stunden lang still eingefroren ist, ohne dass
+  # der Container das selbst gemerkt/gemeldet hätte.
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 # Bewusst Bind-Mounts statt benannter Docker-Volumes (./data/…, ./mosquitto/…):
 # alles liegt sichtbar unter dem Projektordner, damit eine Synology-Sicherung

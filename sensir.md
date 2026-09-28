@@ -509,14 +509,42 @@ cp .env.example .env        # ausfüllen (u. a. MQTT_HOST/PORT des externen Brok
 docker compose up --build
 ```
 
-- `docker-compose.yml`: `postgres` + `backend`. Kein Mosquitto-Service mehr
-  im Stack — der MQTT-Broker für die IR-Bridge-Quelle läuft extern (siehe
-  4.1), erreichbar über `MQTT_HOST/PORT` in `.env`.
+- `docker-compose.yml`: `postgres` + `backend` + `autoheal` (siehe 8.1).
+  Kein Mosquitto-Service mehr im Stack — der MQTT-Broker für die
+  IR-Bridge-Quelle läuft extern (siehe 4.1), erreichbar über
+  `MQTT_HOST/PORT` in `.env`.
 - Migrationen laufen beim Start automatisch (`alembic upgrade head` im
   Backend-Container-Command).
 - Dashboard: `http://<synology>:8000/`, API-Doku: `http://<synology>:8000/docs`.
 
-### 8.1 Volume-/Pfad-Planung auf der Synology
+### 8.1 Heartbeat / automatischer Neustart bei Einfrieren (`app/health.py`)
+
+Live beobachtet (2026-09-28): der Backend-Prozess fror nach einem
+DNS-Ausfall (Tuya-API-Auflösung schlug fehl) offenbar komplett ein — kein
+Absturz, kein Crash, aber alle Hintergrund-Threads (Shelly-Polling,
+APScheduler, Tuya-Pulsar) standen über zwei Stunden lang unbemerkt still,
+während der HTTP-Server selbst weiter ganz normal auf Anfragen antwortete
+(`docker ps` zeigte "running", `GET /` lieferte 200 OK). Ein reiner
+HTTP-Erreichbarkeits-Check hätte das **nicht** erkannt, und `restart:
+unless-stopped` allein hilft nichts, solange der Container nicht crasht.
+
+**Fix — dreiteilig:**
+1. Ein leichter, unabhängiger APScheduler-Job (`heartbeat` in
+   `app/scheduler.py`) aktualisiert jede Minute einen Zeitstempel
+   (`app/health.py`).
+2. `GET /healthz` meldet `503`, sobald dieser Heartbeat älter als
+   `MAX_AGE_SECONDS` (300s) ist — erkennt genau das beobachtete Einfrieren,
+   weil ein hängender Scheduler-Thread auch keine Heartbeats mehr schreibt.
+3. `backend/Dockerfile` hat einen `HEALTHCHECK` gegen `/healthz`;
+   Docker allein startet bei "unhealthy" aber **nicht** automatisch neu —
+   dafür läuft im Compose-Stack ein `autoheal`-Sidecar
+   (`willfarrell/autoheal`, beobachtet den Docker-Socket, restartet
+   Container mit Label `autoheal=true` automatisch bei "unhealthy").
+
+Status manuell prüfen: `curl http://<synology>:8000/healthz` bzw.
+`docker inspect --format '{{.State.Health.Status}}' sensir-backend-1`.
+
+### 8.2 Volume-/Pfad-Planung auf der Synology
 
 Bewusst **Bind-Mounts statt benannter Docker-Volumes** (Umstellung von
 `pgdata:`/`ml_models:`-Named-Volumes) — alle persistenten Daten liegen
