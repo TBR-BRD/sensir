@@ -106,6 +106,18 @@ class TuyaSource(PollingSource):
     def _on_pulsar(self, msg) -> None:
         try:
             payload = msg if isinstance(msg, dict) else json.loads(msg)
+            # TEMPORÄR (2026-09-29): Kamera meldet laut SmartLife-App mehrfach
+            # Bewegung, aber es kommt seit dem letzten Deploy nichts mehr in
+            # sensir an, obwohl Camera Service + Messaging Rule laut Tuya-
+            # Konsole weiter aktiv sind. Minimal-Log (nur devId/bizCode, kein
+            # voller Payload) um zu sehen, ob überhaupt noch Nachrichten
+            # ankommen. Nach dem Test wieder entfernen.
+            _dbg_data = payload.get("bizData") or payload.get("data", payload)
+            logger.info(
+                "TUYA-PULSAR-DEBUG2 devId=%s bizCode=%s",
+                _dbg_data.get("devId") or _dbg_data.get("device_id"),
+                payload.get("bizCode"),
+            )
             # Zwei Nachrichtenformen live beobachtet (2026-09-25):
             #  - älteres "data"/"status"-Format: [{code, value}, ...]
             #  - aktuelles "bizData"/"properties"-Format (u. a. für IPC-Kamera-

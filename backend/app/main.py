@@ -12,6 +12,12 @@ from app.ingest import registry
 from app.web.routes import router as web_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# TEMPORÄR (2026-09-29): tuya-connector-python loggt Pulsar-Verbindungsfehler/
+# -abbrüche nur auf DEBUG-Level (siehe TuyaOpenPulsar._on_error/_on_close) -
+# damit unsichtbar bei unserem sonst auf INFO stehenden Root-Logger. Für die
+# Fehlersuche "Kamera meldet Bewegung, sensir bekommt nichts" hochgestellt,
+# danach wieder entfernen (siehe app/ingest/tuya.py TUYA-PULSAR-DEBUG2).
+logging.getLogger("tuya iot").setLevel(logging.DEBUG)
 
 
 @asynccontextmanager
