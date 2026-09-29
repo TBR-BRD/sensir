@@ -162,14 +162,90 @@ zweimal vor der Kamera bewegt, `GET /api/households/1/events?limit=5` zeigte
 beide Ereignisse korrekt als `kind: motion`. Test-Sensor danach wieder
 gelöscht (gehörte nicht zum Haushalt).
 
+## Nachtrag (2026-09-29): zweites Kameramodell, anderer Bewegungs-Code
+
+Mit der Test-Kamera oben funktionierte alles, aber eine zweite, echte
+Kamera im selben Haushalt (`Household` „Familie-Brandt", ein
+batteriebetriebenes/Solar-Modell, „Outdoor Battery Solar PTZ Camera",
+anderer `productId` als die Testkamera) lieferte trotz identischer
+Projekt-Konfiguration (Messaging Rule aktiv, Camera Service „Permanent"/
+„In service") **keine** `movement_detect_pic`-Ereignisse.
+
+**Diagnose-Ablauf:**
+1. Erst geprüft, ob überhaupt noch Pulsar-Nachrichten ankommen (temporäres
+   Debug-Log `TUYA-PULSAR-DEBUG2` mit nur `devId`/`bizCode`, um nicht erneut
+   volle Payloads mit echten Geräte-IDs zu loggen) — Nachrichten von
+   *anderen* Tuya-Geräten im Account kamen weiterhin zuverlässig an, die
+   Pipeline war also grundsätzlich intakt.
+2. Zusätzlich `logging.getLogger("tuya iot").setLevel(logging.DEBUG)`
+   gesetzt — die `tuya-connector-python`-Bibliothek loggt Pulsar-
+   Verbindungsfehler/-abbrüche sonst nur auf DEBUG, unsichtbar bei unserem
+   INFO-Root-Logger.
+3. Nach einer vom Nutzer bestätigten Bewegung (per SmartLife-App) kamen für
+   genau diese Kamera-ID **sieben** Nachrichten auf einmal an — aber mit
+   anderen Codes:
+   ```json
+   {"bizCode":"devicePropertyMessage","bizData":{"devId":"<device-id>",
+    "properties":[{"code":"wireless_powermode","value":"1"}]}}
+   {"bizCode":"devicePropertyMessage","bizData":{"devId":"<device-id>",
+    "properties":[{"code":"wireless_awake","value":true}]}}
+   {"bizCode":"devicePropertyMessage","bizData":{"devId":"<device-id>",
+    "properties":[{"code":"wireless_electricity","value":100}]}}
+   {"bizCode":"devicePropertyMessage","bizData":{"devId":"<device-id>",
+    "properties":[{"code":"ipc_lan_ip","value":"192.168.2.101"}]}}
+   {"bizCode":"devicePropertyMessage","bizData":{"devId":"<device-id>",
+    "properties":[{"code":"sd_status","value":1}]}}
+   {"bizCode":"devicePropertyMessage","bizData":{"devId":"<device-id>",
+    "properties":[{"code":"sd_storge","value":"15627352|2767440|12859912"}]}}
+   ```
+   Kein einziges `movement_detect_pic` darunter, auch nicht innerhalb der
+   folgenden 20 Minuten.
+
+**Erklärung:** Diese Kamera ist ein **batteriebetriebenes** Modell, das
+zwischen PIR-Auslösungen in einen Ruhezustand geht, um Strom zu sparen
+(anders als die durchgehend aktive Testkamera). Der Nachrichten-Burst ist
+das Gerät, das beim Aufwachen aus dem Ruhezustand seinen Status
+durchreicht (Funkmodus, Akkustand, LAN-IP, SD-Karten-Status). Der Grund
+fürs Aufwachen ist praktisch immer der PIR-Sensor — **`wireless_awake:
+true`** ist bei diesem Kameratyp also das eigentliche Bewegungssignal.
+
+**Fix:** `wireless_awake` zu `_TUYA_MOTION` (`app/ingest/normalize.py`)
+hinzugefügt — läuft über den normalen `_truthy()`-Pfad wie ein
+klassischer PIR-Melder (`true` = Ereignis, `false` beim Wieder-
+Einschlafen löst bewusst nichts aus). Die übrigen Codes im selben Burst
+(`wireless_powermode` etc.) bleiben absichtlich ungematcht.
+
+**Bekannte Einschränkung:** `wireless_awake` ist eine Näherung, kein
+dedizierter Bewegungs-DP — theoretisch könnte das Gerät auch für
+periodisches Housekeeping aufwachen, nicht nur bei echter PIR-Auslösung.
+Bislang die einzige verfügbare Signalquelle für dieses Modell; falls sich
+das in der Praxis als zu störanfällig erweist (z. B. deutlich mehr
+Ereignisse als in der SmartLife-App als "Bewegung" gemeldet werden),
+gegen echte Nutzungsdaten neu bewerten.
+
+**Praktische Lehre für weitere Kameras:** Tuyas DP-Schema für "Bewegung
+erkannt" ist **nicht einheitlich über Kameramodelle hinweg** — bei jedem
+neuen Kameramodell lohnt sich ein kurzer Live-Test mit dem oben
+beschriebenen Debug-Log-Verfahren, bevor man annimmt, dass
+`movement_detect_pic` oder `wireless_awake` automatisch passt.
+
 ## Kurzversion für neue Kameras
 
 Falls eine weitere Tuya-IPC-Kamera angebunden werden soll und alles oben
-Beschriebene im Projekt schon eingerichtet ist, sind **keine** weiteren
-Schritte nötig — Messaging Rule und Camera-Service-Abo gelten fürs ganze
-Projekt, nicht pro Gerät. Einfach normal als Sensor anlegen:
+Beschriebene im Projekt schon eingerichtet ist (Messaging Rule + Camera
+Service gelten fürs ganze Projekt, nicht pro Gerät), reicht meist:
 
 ```bash
 curl -X POST localhost:8000/api/sensors -H 'Content-Type: application/json' \
   -d '{"household_id":1,"name":"Neue Kamera","kind":"tuya","external_id":"<device-id>","config":{}}'
 ```
+
+**Aber:** wie im Nachtrag oben beschrieben, nutzen unterschiedliche
+Kameramodelle unterschiedliche DP-Codes für "Bewegung erkannt"
+(`movement_detect_pic` bei durchgehend aktiven Modellen, `wireless_awake`
+bei batteriebetriebenen). `app/ingest/normalize.py` kennt aktuell beide —
+falls ein drittes Modell keins von beiden nutzt, hilft derselbe
+Debug-Log-Ablauf wie im Nachtrag: `logger.info(...)` mit `devId`/`bizCode`
+in `_on_pulsar()` reaktivieren, Nutzer vor der Kamera bewegen lassen, den
+tatsächlichen Code in der Antwort ablesen, dann in `_TUYA_MOTION` bzw.
+`_TUYA_MOTION_EVENT` ergänzen.

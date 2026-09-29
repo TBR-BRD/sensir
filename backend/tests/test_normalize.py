@@ -31,6 +31,22 @@ def test_tuya_camera_movement_detect_pic():
     assert [e.kind for e in ev] == ["motion"]
 
 
+def test_tuya_camera_wireless_awake():
+    # Anderes Kameramodell (batteriebetrieben, schläft zwischen PIR-Weckern):
+    # "wireless_awake"=True beim Aufwachen ist hier das Bewegungssignal statt
+    # movement_detect_pic. Live verifiziert (2026-09-29) - dieselbe Nachricht
+    # enthielt auch wireless_powermode/wireless_electricity/ipc_lan_ip/
+    # sd_status, die absichtlich nichts auslösen (kein Match in normalize.py).
+    ev = normalize_tuya(
+        [{"code": "wireless_awake", "value": True}], on_threshold_w=10, plug_state={}, key="d"
+    )
+    assert [e.kind for e in ev] == ["motion"]
+    # False = Gerät geht wieder schlafen, kein Ereignis
+    assert normalize_tuya(
+        [{"code": "wireless_awake", "value": False}], on_threshold_w=10, plug_state={}, key="d"
+    ) == []
+
+
 def test_tuya_plug_edges():
     st: dict = {}
     assert normalize_tuya([{"code": "cur_power", "value": 20}], on_threshold_w=10, plug_state=st, key="p") == []

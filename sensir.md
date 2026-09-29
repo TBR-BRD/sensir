@@ -300,9 +300,27 @@ die aktivierten Quellen. Jede Quelle läuft in ihrem eigenen Hintergrund-Thread
   aber `{"bizCode": "devicePropertyMessage", "bizData": {"devId": ...,
   "properties": [{"code", "dpId", "time", "value"}]}}` an. `_on_pulsar()`
   in `app/ingest/tuya.py` versteht inzwischen beide Formen.
-- Live gegen ein echtes Tuya-Konto verifiziert (2026-09-25, inkl. Camera
-  Service + Messaging Rules): REST-Polling, Pulsar-Stream (normale Geräte
-  **und** IPC-Kamera-Bewegungsalarme) sowie Geräte-Discovery funktionieren
+- **Nicht jedes Kameramodell nutzt `movement_detect_pic`:** eine zweite,
+  echte Kamera (batteriebetrieben/Solar, „Outdoor Battery Solar PTZ
+  Camera", anderer `productId` als die Testkamera) meldet Bewegung
+  stattdessen über den DP **`wireless_awake`** (`true` beim Aufwachen aus
+  dem Ruhezustand — der Grund fürs Aufwachen ist praktisch immer der
+  PIR-Sensor). Im selben Nachrichten-Burst kommen zusätzlich
+  `wireless_powermode`, `wireless_electricity`, `ipc_lan_ip`, `sd_status`,
+  `sd_storge` — die absichtlich **nicht** matchen (kein Motion-Ereignis).
+  Behandelt in `_TUYA_MOTION` (`app/ingest/normalize.py`) wie ein normaler
+  PIR-Melder (mit `_truthy()`-Prüfung, `false` beim Wieder-Einschlafen löst
+  bewusst nichts aus). **Achtung:** `wireless_awake` kann theoretisch auch
+  durch periodisches Housekeeping statt echter Bewegung ausgelöst werden —
+  bislang die einzige verfügbare Näherung für dieses Gerät, falls sich das
+  als zu störanfällig erweist, im Zweifel gegen echte Nutzungsdaten prüfen.
+  Live verifiziert 2026-09-29 (siehe
+  [`docs/tuya-camera-motion-troubleshooting.md`](docs/tuya-camera-motion-troubleshooting.md)
+  für den vollständigen Debug-Log-Mitschnitt).
+- Live gegen ein echtes Tuya-Konto verifiziert (2026-09-25/29, inkl. Camera
+  Service + Messaging Rules, zwei unterschiedliche Kameramodelle):
+  REST-Polling, Pulsar-Stream (normale Geräte **und** zwei verschiedene
+  IPC-Kamera-Bewegungsmeldearten) sowie Geräte-Discovery funktionieren
   mit obigen Einstellungen.
 
 ### 4.3 Shelly Cloud (`shelly.py`)

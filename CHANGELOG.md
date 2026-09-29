@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Fix: zweites Tuya-Kameramodell nutzt anderen Bewegungs-Code
+
+Nach dem Fix für `movement_detect_pic` (Eintrag unten) meldete eine
+*zweite*, echte Kamera (batteriebetriebenes Solar-Modell, anderer
+`productId`) weiterhin keine Bewegung, obwohl Messaging Rule und Camera
+Service laut Tuya-Konsole aktiv waren. Live-Diagnose (temporäres
+Debug-Logging, Details in
+[`docs/tuya-camera-motion-troubleshooting.md`](docs/tuya-camera-motion-troubleshooting.md))
+zeigte: dieses Modell schläft zwischen PIR-Auslösungen und meldet Bewegung
+über den DP **`wireless_awake`** (`true` beim Aufwachen), nicht über
+`movement_detect_pic` — Tuyas DP-Schema für "Bewegung erkannt" ist nicht
+einheitlich über Kameramodelle hinweg.
+
+- `app/ingest/normalize.py`: `wireless_awake` zu `_TUYA_MOTION` ergänzt
+  (normaler `_truthy()`-Pfad, `false` beim Einschlafen löst nichts aus).
+- Neuer Test `test_tuya_camera_wireless_awake`.
+- Temporäres Debug-Logging (Commit `73bfebe`) wieder entfernt.
+
 ### Fix: automatischer Neustart bei stillem Einfrieren des Backends
 
 Live beobachtet (2026-09-28): der Backend-Prozess fror nach einem

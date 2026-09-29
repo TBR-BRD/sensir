@@ -40,6 +40,15 @@ def _truthy(v, extra: set[str] = frozenset()) -> bool:
 # Tuya
 # ---------------------------------------------------------------------------
 _TUYA_MOTION = {"pir", "presence_state", "presence", "occupancy"}
+# "wireless_awake": bei batteriebetriebenen/Solar-IPC-Kameras (z. B. "Outdoor
+# Battery Solar PTZ Camera") schläft das Gerät meist und wacht nur bei
+# PIR-Bewegung auf - "wireless_awake"=True beim Aufwachen ist bei diesem
+# Kameratyp das eigentliche Bewegungssignal, nicht "movement_detect_pic"
+# (das nutzt ein anderes, dauerhaft aktives Kameramodell, siehe unten).
+# Achtung: kann theoretisch auch durch periodische Housekeeping-Wachphasen
+# statt echter Bewegung ausgelöst werden - bislang aber die einzige
+# verfügbare Näherung für dieses Gerät. Live verifiziert (2026-09-29).
+_TUYA_MOTION.add("wireless_awake")
 # Event-only-DPs (typisch für Tuya-IPC-Kameras): der Code kommt nur, wenn
 # gerade Bewegung erkannt wurde - kein persistenter An/Aus-Wert wie bei
 # normalen PIR-Meldern, daher ohne _truthy()-Prüfung behandelt (siehe
