@@ -379,7 +379,10 @@ ausgeschlossen und stattdessen sofort alarmiert.
 - Pro Haushalt können Zeitfenster konfiguriert werden: Wochentag (oder `null`
   = jeden Tag), Start-/Endzeit, `min_actions`.
 - Ohne konfiguriertes Fenster gilt der Default aus `.env`
-  (`DEFAULT_WINDOW_START/END/MIN_ACTIONS`, Standard 18:00–23:59, 2 Aktionen).
+  (`DEFAULT_WINDOW_START/END/MIN_ACTIONS`, Standard 08:00–22:00, 2 Aktionen —
+  deckt die wachen Stunden ab, nicht nur den Abend; historisch war der
+  Default 18:00–23:59, passend zur ursprünglichen IR-Fernbedienungs-Quelle,
+  aber zu eng für eine Multi-Source-Überwachung über den ganzen Tag).
 - `scheduler.py` lässt `run_periodic_check()` alle `CHECK_INTERVAL_MINUTES`
   (Standard 15) laufen: für jedes heute aktive Fenster wird die Zahl der
   `SensorEvent`s (ohne `safety`) im Fenster gezählt.
@@ -507,8 +510,8 @@ SOURCE_POLL_INTERVAL_SECONDS=120   # Tuya + Shelly Polling-Fallback
 # Alerting
 TELEGRAM_BOT_TOKEN=
 CHECK_INTERVAL_MINUTES=15
-DEFAULT_WINDOW_START=18:00
-DEFAULT_WINDOW_END=23:59
+DEFAULT_WINDOW_START=08:00
+DEFAULT_WINDOW_END=22:00
 DEFAULT_MIN_ACTIONS=2
 ML_MIN_SAMPLES=200
 ML_TRAIN_HOUR_UTC=3

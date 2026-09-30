@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Standard-Zeitfenster auf 08:00–22:00 erweitert
+
+Der bisherige Default (`DEFAULT_WINDOW_START/END`, 18:00–23:59) deckte nur
+den Abend ab — historisch bedingt durch die ursprüngliche IR-Fernbedienungs-
+Quelle (abendliches Fernsehen), aber zu eng für eine Multi-Source-Über-
+wachung mit Bewegungsmeldern, Kameras, Steckdosen. Nutzer wies darauf hin,
+dass bei völliger Inaktivität den ganzen Vormittag aktuell **kein** Alarm
+ausgelöst würde, weil dieser Zeitraum gar nicht geprüft wurde.
+
+- `.env.example`/`sensir.md`: neuer Default `DEFAULT_WINDOW_START=08:00`,
+  `DEFAULT_WINDOW_END=22:00` — deckt die wachen Stunden ab.
+- Live auf der Synology übernommen (gilt für alle drei Haushalte, da bisher
+  keiner ein eigenes `ObservationWindow` konfiguriert hat).
+
 ### Fix: zweites Tuya-Kameramodell nutzt anderen Bewegungs-Code
 
 Nach dem Fix für `movement_detect_pic` (Eintrag unten) meldete eine
