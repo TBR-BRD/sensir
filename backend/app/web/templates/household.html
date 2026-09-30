@@ -19,20 +19,29 @@
 <section>
   <h2>Sensoren</h2>
   <ul>
-    {% for s in sensors %}<li>{{ s.name }} — {{ s.kind.value }} ({{ s.mqtt_topic or s.external_id }}) {% if not s.is_active %}– inaktiv{% endif %}</li>{% endfor %}
+    {% for s in sensors %}
+    <li>
+      {{ s.name }} — {{ s.kind.value }} ({{ s.mqtt_topic or s.external_id }})
+      {% if not s.is_active %} – inaktiv{% endif %}
+      {% if s.config and s.config.get('confirmation_only') %} <span class="muted">(nur Bestätigung, zählt in keinem Zeitfenster)</span>{% endif %}
+      {% if s.config and s.config.get('emergency') %} <span class="muted">(Notrufknopf)</span>{% endif %}
+    </li>
+    {% endfor %}
   </ul>
 </section>
 
 <section>
   <h2>Aktuelle Beobachtungsfenster</h2>
+  <p class="muted">Mehrere Fenster sind ODER-verknüpft: reicht irgendein Fenster, gilt der Haushalt als in Ordnung. Alarm nur, wenn alle heutigen Fenster negativ abschließen.</p>
   <table>
-    <tr><th>Wochentag</th><th>Von</th><th>Bis</th><th>Min. Aktionen</th><th>Quelle</th></tr>
+    <tr><th>Wochentag</th><th>Von</th><th>Bis</th><th>Min. Aktionen</th><th>Sensor</th><th>Quelle</th></tr>
     {% for w in windows %}
     <tr>
       <td>{{ w.weekday if w.weekday is not none else 'täglich' }}</td>
       <td>{{ w.start_time }}</td>
       <td>{{ w.end_time }}</td>
       <td>{{ w.min_actions }}</td>
+      <td>{{ sensor_names.get(w.sensor_id, 'Alle Sensoren') if w.sensor_id else 'Alle Sensoren' }}</td>
       <td>{{ w.source.value }}{% if w.confidence %} ({{ '%.0f'|format(w.confidence * 100) }}%){% endif %}</td>
     </tr>
     {% endfor %}
@@ -49,6 +58,14 @@
     <label>Von <input type="time" name="start_time" required></label>
     <label>Bis <input type="time" name="end_time" required></label>
     <label>Min. Aktionen <input type="number" name="min_actions" value="2" min="1"></label>
+    <label>Sensor
+      <select name="sensor_id">
+        <option value="">Alle Sensoren</option>
+        {% for s in sensors %}
+        <option value="{{ s.id }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <button type="submit">Zeitfenster hinzufügen</button>
   </form>
 </section>

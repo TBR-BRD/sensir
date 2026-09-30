@@ -1,14 +1,28 @@
 """Periodic evaluation of each household's observation window(s).
 
-For every ObservationWindow instance covering "now", counts IR events seen
-so far. If the count already meets the expectation, the window resolves as
-positive immediately (even before it ends). If the window has ended without
-enough activity, it resolves as negative and active contacts are alerted -
-mirroring the positive/negative rule check described in Sensir Dokumentation
-final.pdf section 1.1.
+For every ObservationWindow instance covering "now", counts events seen so
+far (optionally scoped to one sensor, see `ObservationWindow.sensor_id`). If
+the count already meets the expectation, the window resolves as positive
+immediately (even before it ends). If the window has ended without enough
+activity, it resolves as negative - mirroring the positive/negative rule
+check described in Sensir Dokumentation final.pdf section 1.1.
 
-The expectation is the ML model's prediction (app/ml/window_model.py) once
-trained, otherwise the window's fixed min_actions.
+**Mehrere Fenster pro Haushalt sind ODER-verknüpft:** reicht irgendein
+Fenster (egal ob noch offen oder schon positiv abgeschlossen), gilt der
+Haushalt als "in Ordnung" - ein Alarm geht erst raus, wenn ALLE heutigen
+Fenster negativ abgeschlossen haben. Gedacht für sich ergänzende Sensoren
+mit unterschiedlicher erwarteter Auslösefrequenz, z. B. ein Bewegungsmelder
+mit weitem Fenster (8-22 Uhr) neben einem IR-Fernbedienungssensor mit
+engerem Fenster (18-22 Uhr) - fällt einer aus, reicht der andere.
+
+Sensoren mit `config["confirmation_only"] = true` (z. B. eine Kamera, die
+nur zur manuellen Bestätigung dienen soll) zählen in KEINEM Fenster mit,
+auch nicht, wenn ein Fenster explizit auf sie gescoped ist - ihre Ereignisse
+erscheinen weiterhin im Log, lösen aber nie selbst "positiv" aus.
+
+Die Erwartung ist die Vorhersage des ML-Modells (app/ml/window_model.py, nur
+für das Alle-Sensoren-Fenster ohne `sensor_id`, da das Modell bisher nicht
+pro Sensor trainiert) einmal trainiert, sonst `min_actions` des Fensters.
 """
 
 import datetime as dt
@@ -158,12 +172,29 @@ def active_window(session: Session, household_id: int, now_local: dt.datetime) -
     return None
 
 
-def _count_events(session: Session, household_id: int, start: dt.datetime, end: dt.datetime) -> int:
+def _countable_sensor_ids(session: Session, household_id: int, sensor_id: int | None) -> list[int]:
+    """Sensoren, deren Ereignisse für ein Fenster zählen: alle aktiven
+    Sensoren des Haushalts (oder nur `sensor_id`, falls das Fenster darauf
+    gescoped ist), abzüglich `config["confirmation_only"]`-Sensoren (z. B.
+    eine Kamera, die nie selbst "positiv" auslösen soll, siehe Modul-
+    Docstring)."""
+    query = select(Sensor.id, Sensor.config).where(
+        Sensor.household_id == household_id, Sensor.is_active.is_(True)
+    )
+    if sensor_id is not None:
+        query = query.where(Sensor.id == sensor_id)
+    return [sid for sid, cfg in session.execute(query).all() if not (cfg or {}).get("confirmation_only")]
+
+
+def _count_events(
+    session: Session, household_id: int, start: dt.datetime, end: dt.datetime, sensor_id: int | None = None
+) -> int:
+    sensor_ids = _countable_sensor_ids(session, household_id, sensor_id)
+    if not sensor_ids:
+        return 0
     return session.execute(
-        select(func.count(SensorEvent.id))
-        .join(Sensor, Sensor.id == SensorEvent.sensor_id)
-        .where(
-            Sensor.household_id == household_id,
+        select(func.count(SensorEvent.id)).where(
+            SensorEvent.sensor_id.in_(sensor_ids),
             SensorEvent.received_at >= start,
             SensorEvent.received_at < end,
             SensorEvent.safety.is_(False),
@@ -171,69 +202,94 @@ def _count_events(session: Session, household_id: int, start: dt.datetime, end: 
     ).scalar_one()
 
 
-def _sufficient(household_id: int, action_count: int, start_t: dt.time, end_t: dt.time, min_actions: int) -> bool:
-    expected = window_model.expected_events(household_id, window_model.minute_of_day(start_t), window_model.minute_of_day(end_t))
-    if expected is not None and expected >= 1:
-        return action_count >= expected * window_model.ANOMALY_RATIO
+def _sufficient(
+    household_id: int, action_count: int, start_t: dt.time, end_t: dt.time, min_actions: int, sensor_id: int | None
+) -> bool:
+    # Das ML-Modell trainiert bisher über alle Sensoren gemeinsam (siehe
+    # ml/window_model.py) - für ein auf einen einzelnen Sensor gescoptes
+    # Fenster wäre die Haushalts-weite Erwartung nicht aussagekräftig,
+    # deshalb dort bewusst nur der feste min_actions-Schwellenwert.
+    if sensor_id is None:
+        expected = window_model.expected_events(household_id, window_model.minute_of_day(start_t), window_model.minute_of_day(end_t))
+        if expected is not None and expected >= 1:
+            return action_count >= expected * window_model.ANOMALY_RATIO
     return action_count >= min_actions
 
 
-def _check_household(session: Session, household: Household) -> None:
+def _check_household(session: Session, household: Household, now_local: dt.datetime | None = None) -> None:
     tz = ZoneInfo(household.timezone)
-    now_local = dt.datetime.now(tz)
+    now_local = now_local or dt.datetime.now(tz)  # override nur für Tests
+    today = now_local.date()
 
     windows = _todays_windows(session, household.id, now_local.weekday())
-    if not windows:
+    if windows:
+        specs = [(w.id, w.sensor_id, w.start_time, w.end_time, w.min_actions) for w in windows]
+    else:
         # no manual config yet - evaluate the single default window instead
-        _evaluate_window(
-            session, household, None,
-            settings.default_window_start, settings.default_window_end, settings.default_min_actions,
-            now_local, tz,
-        )
-        return
+        specs = [(None, None, settings.default_window_start, settings.default_window_end, settings.default_min_actions)]
 
-    for w in windows:
-        _evaluate_window(session, household, w.id, w.start_time, w.end_time, w.min_actions, now_local, tz)
+    results = [
+        _evaluate_window(session, household, window_id, sensor_id, start_t, end_t, min_actions, now_local, tz)
+        for window_id, sensor_id, start_t, end_t, min_actions in specs
+    ]
+
+    if any(r == CheckStatus.positive for r in results):
+        return  # mindestens ein Fenster reicht (ODER-Verknüpfung, siehe Modul-Docstring)
+
+    if all(r == CheckStatus.negative for r in results):
+        # alle heutigen Fenster sind durchgelaufen, keins hat gereicht
+        marker = f"window-summary:{household.id}:{today.isoformat()}"
+        if not _already_alerted(session, household.id, marker):
+            message = (
+                f"Bitte melde dich bei {household.name}! Keine ausreichende "
+                f"Aktivität in keinem der heutigen Zeitfenster. [{marker}]"
+            )
+            _notify_contacts(session, household, message)
 
 
 def _evaluate_window(
     session: Session,
     household: Household,
     window_id: int | None,
+    sensor_id: int | None,
     start_t: dt.time,
     end_t: dt.time,
     min_actions: int,
     now_local: dt.datetime,
     tz: ZoneInfo,
-) -> None:
+) -> CheckStatus | None:
+    """Gibt den Status dieses Fensters für heute zurück - `None`, solange es
+    entweder noch nicht begonnen hat oder noch offen ist und noch nicht genug
+    Aktivität hatte (in beiden Fällen: abwarten, noch nicht entschieden)."""
     today = now_local.date()
     period_start = dt.datetime.combine(today, start_t, tzinfo=tz)
     period_end = dt.datetime.combine(today, end_t, tzinfo=tz)
     if now_local < period_start:
-        return  # today's instance of this window hasn't started yet
+        return None  # today's instance of this window hasn't started yet
 
     already_checked = session.execute(
         select(ActivityCheck).where(
             ActivityCheck.household_id == household.id,
             ActivityCheck.period_start == period_start,
             ActivityCheck.period_end == period_end,
+            ActivityCheck.window_id == window_id if window_id is not None else ActivityCheck.window_id.is_(None),
         )
     ).scalar_one_or_none()
     if already_checked is not None:
-        return  # today's instance of this window is already resolved
+        return already_checked.status  # today's instance of this window is already resolved
 
-    action_count = _count_events(session, household.id, period_start, min(now_local, period_end))
-    sufficient = _sufficient(household.id, action_count, start_t, end_t, min_actions)
+    action_count = _count_events(session, household.id, period_start, min(now_local, period_end), sensor_id)
+    sufficient = _sufficient(household.id, action_count, start_t, end_t, min_actions, sensor_id)
 
     if sufficient:
         _record_check(session, household.id, window_id, period_start, period_end, action_count, CheckStatus.positive)
-        return
+        return CheckStatus.positive
 
     if now_local < period_end:
-        return  # not enough activity yet, but the window is still open - keep waiting
+        return None  # not enough activity yet, but the window is still open - keep waiting
 
     _record_check(session, household.id, window_id, period_start, period_end, action_count, CheckStatus.negative)
-    _send_alert(session, household, action_count, min_actions)
+    return CheckStatus.negative
 
 
 def _record_check(
@@ -256,14 +312,6 @@ def _record_check(
         )
     )
     session.flush()
-
-
-def _send_alert(session: Session, household: Household, action_count: int, min_actions: int) -> None:
-    message = (
-        f"Bitte melde dich bei {household.name}! Keine erwartete Aktivität im "
-        f"Zeitfenster ({action_count} von mind. {min_actions} erwarteten Aktionen)."
-    )
-    _notify_contacts(session, household, message)
 
 
 def _notify_contacts(session: Session, household: Household, message: str) -> None:

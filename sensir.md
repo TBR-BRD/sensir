@@ -376,8 +376,9 @@ ausgeschlossen und stattdessen sofort alarmiert.
 
 ### 5.1 Beobachtungsfenster (`ObservationWindow` / `alerting/engine.py`)
 
-- Pro Haushalt können Zeitfenster konfiguriert werden: Wochentag (oder `null`
-  = jeden Tag), Start-/Endzeit, `min_actions`.
+- Pro Haushalt können **mehrere** Zeitfenster konfiguriert werden: Wochentag
+  (oder `null` = jeden Tag), Start-/Endzeit, `min_actions`, optional
+  `sensor_id` (siehe unten).
 - Ohne konfiguriertes Fenster gilt der Default aus `.env`
   (`DEFAULT_WINDOW_START/END/MIN_ACTIONS`, Standard 08:00–22:00, 2 Aktionen —
   deckt die wachen Stunden ab, nicht nur den Abend; historisch war der
@@ -386,10 +387,50 @@ ausgeschlossen und stattdessen sofort alarmiert.
 - `scheduler.py` lässt `run_periodic_check()` alle `CHECK_INTERVAL_MINUTES`
   (Standard 15) laufen: für jedes heute aktive Fenster wird die Zahl der
   `SensorEvent`s (ohne `safety`) im Fenster gezählt.
-  - genug Aktionen **schon vor Fensterende** → `ActivityCheck` `positive`,
-    fertig.
-  - Fenster vorbei, zu wenig Aktionen → `ActivityCheck` `negative` →
-    **Telegram-Alarm an alle aktiven Kontakte** des Haushalts.
+  - genug Aktionen **schon vor Fensterende** → Fenster `positive`, fertig.
+  - Fenster vorbei, zu wenig Aktionen → Fenster `negative`.
+
+#### Mehrere Fenster pro Haushalt — ODER-Verknüpfung, Sensor-Scoping
+
+Seit 2026-09-30: **mehrere Fenster desselben Haushalts sind ODER-verknüpft**
+(`_check_household()` in `alerting/engine.py`). Reicht irgendein Fenster
+(egal ob schon positiv abgeschlossen oder noch offen und unterwegs
+ausreichend), gilt der Haushalt als "in Ordnung" — ein **Telegram-Alarm geht
+erst raus, wenn ALLE heutigen Fenster negativ abgeschlossen haben**
+(entprellt über `AlertLog`-Marker `window-summary:{household_id}:{datum}`,
+ein Alarm pro Haushalt und Tag).
+
+Gedacht für sich ergänzende Sensoren mit unterschiedlicher erwarteter
+Auslösefrequenz — Beispiel aus der Praxis: ein Bewegungsmelder im Flur löst
+naturgemäß viel öfter aus als eine IR-Fernbedienung am Fernseher. Zwei
+Fenster für denselben Haushalt:
+- Bewegungsmelder-Fenster: 08:00–22:00, `min_actions` z. B. 5
+- TV-IR-Fenster: 18:00–22:00, `min_actions` z. B. 1
+
+Fällt einer der beiden Sensoren aus (Batterie leer, Funkstörung), reicht der
+andere weiterhin aus, um "in Ordnung" zu melden — kein Fehlalarm nur wegen
+eines einzelnen ausgefallenen Sensors.
+
+**`ObservationWindow.sensor_id`** (Migration `0004_window_sensor_scope`):
+`null` (Standard) = das Fenster zählt Ereignisse **aller** Sensoren des
+Haushalts (bisheriges Verhalten). Gesetzt = nur dieser eine Sensor zählt für
+dieses Fenster. Im Dashboard beim Zeitfenster-Anlegen per Dropdown wählbar
+(„Alle Sensoren" oder ein konkreter Sensor).
+
+**`Sensor.config["confirmation_only"] = true`** — markiert einen Sensor
+(typischerweise eine Kamera) so, dass seine Ereignisse in **keinem** Fenster
+mitzählen, auch nicht, wenn ein Fenster explizit auf ihn gescoped ist. Seine
+Ereignisse tauchen weiterhin normal im Ereignis-Log auf (zur manuellen
+Bestätigung/Kontrolle), lösen aber nie selbst "positiv" aus und können einen
+Alarm nicht verhindern. Gedacht für Sensoren, die nur ergänzende Bestätigung
+liefern sollen, nicht die primäre Grundlage der Auswertung sind.
+
+**Bekannte Einschränkung:** das ML-Modell (5.2) trainiert bisher über alle
+Sensoren eines Haushalts gemeinsam, nicht pro Sensor — für ein auf einen
+einzelnen Sensor gescoptes Fenster wäre die Haushalts-weite ML-Erwartung
+nicht aussagekräftig, deshalb nutzen sensor-gescopte Fenster bewusst immer
+den festen `min_actions`-Schwellenwert statt der ML-Vorhersage (nur das
+Alle-Sensoren-Fenster ohne `sensor_id` profitiert vom ML-Modell).
 - **Sofort-Alarme:** `_check_safety()` läuft im selben Takt, sucht
   `SensorEvent`s mit `safety=True` der letzten `CHECK_INTERVAL_MINUTES + 5`
   Minuten und alarmiert **unabhängig vom Zeitfenster**, entprellt über
@@ -461,7 +502,7 @@ alle `SensorEvent`s der letzten 7 Tage als CSV und schickt sie per Telegram
 | `/api/households/{id}/contacts` | GET/POST | Kontakte (Liste sortiert nach `priority`) |
 | `/api/households/{id}/contacts/{id}` | PATCH/DELETE | Kontakt ändern (Name, `priority`, `telegram_chat_id`, `is_active`, …) / löschen |
 | `/api/households/{id}/contacts/{id}/test` | POST | sofortige Telegram-Testnachricht an diesen Kontakt, protokolliert in `alert_log` |
-| `/api/households/{id}/windows` | GET/POST | Beobachtungsfenster |
+| `/api/households/{id}/windows` | GET/POST | Beobachtungsfenster; POST akzeptiert optional `sensor_id` (Fenster nur für diesen Sensor, siehe 5.1) |
 | `/api/households/{id}/windows/{id}` | PATCH/DELETE | Fenster ändern (setzt `source=manual`) / löschen |
 | `/api/households/{id}/status` | GET | aktueller Status (letztes Ereignis, Tagesereignisse, aktives Fenster, letzter Check, `household_active`) |
 | `/api/households/{id}/events` | GET | letzte Sensorereignisse (`?limit=`, Standard 10), neueste zuerst, Zeit bereits auf Haushalts-Zeitzone umgerechnet |
@@ -693,7 +734,7 @@ sensir/
 │                              extern (siehe Abschnitt 4.1)
 └── backend/
     ├── requirements.txt
-    ├── alembic/                Migrationen (0001 initial, 0002 multi-source, 0003 household.is_active)
+    ├── alembic/                Migrationen (0001 initial, 0002 multi-source, 0003 household.is_active, 0004 window.sensor_id)
     ├── tests/test_normalize.py
     └── app/
         ├── config.py           Settings (.env)

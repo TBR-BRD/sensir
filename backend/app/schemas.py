@@ -109,6 +109,7 @@ class ObservationWindowCreate(BaseModel):
     start_time: dt.time
     end_time: dt.time
     min_actions: int = 2
+    sensor_id: int | None = None  # None = alle Sensoren des Haushalts zählen
 
 
 class ObservationWindowUpdate(BaseModel):
@@ -117,6 +118,7 @@ class ObservationWindowUpdate(BaseModel):
     end_time: dt.time | None = None
     min_actions: int | None = None
     is_active: bool | None = None
+    sensor_id: int | None = None
 
 
 class ObservationWindowOut(BaseModel):
@@ -128,6 +130,7 @@ class ObservationWindowOut(BaseModel):
     start_time: dt.time
     end_time: dt.time
     min_actions: int
+    sensor_id: int | None
     source: WindowSource
     confidence: float | None
     is_active: bool

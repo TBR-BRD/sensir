@@ -64,6 +64,7 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
     ).scalars().all()
     windows = db.execute(select(ObservationWindow).where(ObservationWindow.household_id == household_id)).scalars().all()
     events = recent_events_service(db, household, limit=20)
+    sensor_names = {s.id: s.name for s in sensors}
     return templates.TemplateResponse(
         "household.html",
         {
@@ -71,6 +72,7 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
             "household": household,
             "status": status,
             "sensors": sensors,
+            "sensor_names": sensor_names,
             "contacts": contacts,
             "windows": windows,
             "recent_events": events,
@@ -137,6 +139,7 @@ def add_window(
     end_time: str = Form(...),
     min_actions: int = Form(2),
     weekday: str = Form(""),
+    sensor_id: str = Form(""),
     db: Session = Depends(get_db),
 ):
     db.add(
@@ -146,6 +149,7 @@ def add_window(
             start_time=dt.time.fromisoformat(start_time),
             end_time=dt.time.fromisoformat(end_time),
             min_actions=min_actions,
+            sensor_id=int(sensor_id) if sensor_id != "" else None,
             source=WindowSource.manual,
         )
     )

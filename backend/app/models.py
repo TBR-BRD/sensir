@@ -120,6 +120,14 @@ class ObservationWindow(Base):
     start_time: Mapped[dt.time] = mapped_column(Time)
     end_time: Mapped[dt.time] = mapped_column(Time)
     min_actions: Mapped[int] = mapped_column(Integer, default=2)
+    # NULL = zählt Ereignisse aller Sensoren des Haushalts (bisheriges
+    # Verhalten). Gesetzt = nur dieser eine Sensor zählt für dieses Fenster -
+    # z. B. ein Bewegungsmelder mit weitem Fenster (8-22 Uhr, häufige
+    # Auslösung erwartet) neben einem IR-Fernbedienungssensor mit engerem
+    # Fenster (18-22 Uhr, seltenere Auslösung erwartet). Mehrere Fenster pro
+    # Haushalt gelten per ODER (siehe alerting/engine.py) - reicht irgendein
+    # Fenster, ist der Haushalt "in Ordnung".
+    sensor_id: Mapped[int | None] = mapped_column(ForeignKey("sensors.id"), nullable=True)
     source: Mapped[WindowSource] = mapped_column(Enum(WindowSource), default=WindowSource.manual)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

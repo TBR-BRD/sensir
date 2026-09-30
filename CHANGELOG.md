@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### Mehrere Zeitfenster pro Haushalt: ODER-Verknüpfung, Sensor-Scoping, confirmation_only
+
+Auf Nutzerwunsch: unterschiedliche Sensortypen lösen naturgemäß unterschiedlich
+oft aus (Bewegungsmelder im Flur viel öfter als eine TV-Fernbedienung) —
+bisher zählten aber alle Sensoren eines Haushalts gemeinsam in einem
+einzigen Fenster, was entweder zu unempfindlich (auf den selteneren Sensor
+kalibriert) oder zu empfindlich (auf den häufigeren) war.
+
+- **`ObservationWindow.sensor_id`** (Migration `0004`, nullable FK):
+  `null` = Fenster zählt alle Sensoren des Haushalts (bisheriges Verhalten,
+  abwärtskompatibel), gesetzt = nur dieser eine Sensor zählt. Im Dashboard
+  per Dropdown wählbar.
+- **Mehrere Fenster sind jetzt ODER-verknüpft**
+  (`alerting/engine.py::_check_household`): reicht irgendein Fenster,
+  gilt der Haushalt als "in Ordnung". Alarm nur, wenn **alle** heutigen
+  Fenster negativ abschließen — ein Sammelalarm pro Haushalt und Tag
+  (entprellt über `AlertLog`-Marker), nicht mehr ein Alarm pro negativem
+  Einzelfenster.
+- **`Sensor.config["confirmation_only"] = true`**: Sensor (typischerweise
+  eine Kamera) zählt in keinem Fenster mit, auch nicht bei explizitem
+  Scoping darauf — bleibt im Ereignis-Log sichtbar, löst aber nie selbst
+  "positiv" aus.
+- ML-Erwartung (5.2) gilt weiterhin nur fürs Alle-Sensoren-Fenster ohne
+  `sensor_id` — sensor-gescopte Fenster nutzen den festen `min_actions`.
+- Dashboard: Sensor-Spalte in der Zeitfenster-Tabelle, Sensor-Dropdown im
+  Formular, Badges "(nur Bestätigung...)"/"(Notrufknopf)" in der
+  Sensoren-Liste.
+- Neue Tests `tests/test_engine.py` (ODER-Logik, Sensor-Scoping,
+  confirmation_only, Alarm-Entprellung) — erste Tests für `alerting/engine.py`.
+
 ### Standard-Zeitfenster auf 08:00–22:00 erweitert
 
 Der bisherige Default (`DEFAULT_WINDOW_START/END`, 18:00–23:59) deckte nur
