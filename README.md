@@ -75,6 +75,15 @@ Die erste Migration wird beim Start automatisch ausgeführt
 (`alembic upgrade head` im Backend-Container). Dashboard danach unter
 `http://localhost:8000/`, API-Dokumentation unter `http://localhost:8000/docs`.
 
+## Neuen Haushalt anlegen
+
+Am einfachsten über den Onboarding-Assistenten im Dashboard: "+ Neuen
+Haushalt anlegen" (`/onboarding`) führt in drei Schritten durch Haushalt →
+Sensoren (Tuya/Shelly-Geräte zum Ankreuzen, IR-Bridge manuell) → Kontakt +
+Testnachricht. Details: **[sensir.md, Onboarding-Assistent](sensir.md#onboarding-assistent-für-neue-haushalte-appwebroutespy)**.
+
+Alternativ manuell per API, siehe unten.
+
 ## Einen Sensor anlernen
 
 1. Tasmota-Gerät wie in `Pearl-IR-Sender-Tasmota.pdf` beschrieben flashen

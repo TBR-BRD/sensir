@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Onboarding-Assistent für neue Haushalte
+
+Auf Nutzerwunsch: neue Haushalte konnten bisher nur per `curl`/API angelegt
+werden. Jetzt gibt es einen geführten 3-Schritte-Assistenten im Dashboard
+("+ Neuen Haushalt anlegen" → `/onboarding`):
+
+1. Haushalt (Name, Zeitzone).
+2. Sensoren: unzugeordnete Tuya-/Shelly-Cloud-Geräte zum Ankreuzen mit
+   editierbarem Namen (Tuya/Shelly `list_cloud_devices()` wiederverwendet,
+   nach bereits zugeordneten Geräten gefiltert); IR-Bridge-Sensoren manuell
+   per MQTT-Topic, da nicht per Cloud-API entdeckbar. Überspringbar.
+3. Kontakt(e) anlegen inkl. sofortiger Testnachricht pro Kontakt. Das
+   Standard-Zeitfenster 08:00–22:00 Uhr gilt automatisch.
+
+Danach Weiterleitung zur normalen Haushaltsseite, auf der sich alles
+weiter bearbeiten lässt — der Assistent ist ein zusätzlicher, linearer
+Einstieg, kein Ersatz für die bestehenden Seiten/Routen.
+
 ### Mehrere Zeitfenster pro Haushalt: ODER-Verknüpfung, Sensor-Scoping, confirmation_only
 
 Auf Nutzerwunsch: unterschiedliche Sensortypen lösen naturgemäß unterschiedlich

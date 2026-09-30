@@ -6,8 +6,9 @@
 {% endif %}
 <h1>Haushalte</h1>
 {% if not statuses %}
-  <p class="empty">Noch keine Haushalte angelegt. Über <code>POST /api/households</code> anlegen.</p>
+  <p class="empty">Noch keine Haushalte angelegt.</p>
 {% endif %}
+<p><a class="button-link" href="/onboarding">+ Neuen Haushalt anlegen</a></p>
 <div class="household-grid">
   {% for s in statuses %}
   <a class="card {% if not s.household_active %}status-paused{% else %}status-{{ s.status.value if s.status else 'unknown' }}{% endif %}" href="/households/{{ s.household_id }}">

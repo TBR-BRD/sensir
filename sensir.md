@@ -82,6 +82,34 @@ gemeinsame Aktivitäts-Zeitreihe.
 | `contacts` | Angehörige mit `telegram_chat_id`, `priority` |
 | `alert_log` | jede gesendete Alarm-Nachricht (auch Testnachrichten) |
 
+### Onboarding-Assistent für neue Haushalte (`app/web/routes.py`)
+
+- Geführter 3-Schritte-Assistent statt manuellem `POST /api/households`:
+  "+ Neuen Haushalt anlegen" auf dem Dashboard → `/onboarding`.
+  1. **Haushalt**: Name + Zeitzone (`GET/POST /onboarding`).
+  2. **Sensoren**: listet unzugeordnete Tuya-/Shelly-Cloud-Geräte
+     (`list_cloud_devices()` aus `ingest/tuya.py` bzw. `ingest/shelly.py`,
+     gefiltert um bereits zugeordnete `(kind, external_id)`-Paare) zum
+     Ankreuzen mit editierbarem Anzeigenamen; IR-Bridge-Sensoren müssen
+     manuell per MQTT-Topic eingetragen werden (lassen sich nicht per API
+     entdecken). Fehlt `TUYA_ENABLED`/`SHELLY_ENABLED` in `.env`, erscheint
+     ein Hinweis statt einer leeren Liste; schlägt der Cloud-Abruf fehl
+     (z. B. abgelaufenes Tuya-Trial), wird der Fehler angezeigt statt die
+     Seite abstürzen zu lassen. Überspringbar (`GET/POST
+     /onboarding/{id}/sensors`).
+  3. **Kontakt**: legt Kontakte an und erlaubt sofort eine Testnachricht
+     pro Kontakt (`GET/POST /onboarding/{id}/contact`, `POST
+     /onboarding/{id}/contact/{id}/test` — bewusst eine eigene Route statt
+     der bestehenden `/households/{id}/contacts/{id}/test`, damit der
+     Redirect im Assistenten bleibt statt vorzeitig zur normalen
+     Haushaltsseite zu springen). Das Standard-Zeitfenster 08:00–22:00 Uhr
+     (alle Sensoren) gilt automatisch, ohne dass hier etwas eingestellt
+     werden muss.
+  Danach geht es zur normalen Haushaltsseite (`/households/{id}`), auf der
+  sich Sensoren/Kontakte/Zeitfenster jederzeit weiter bearbeiten lassen —
+  der Assistent ersetzt diese Seite nicht, sondern führt nur beim ersten
+  Einrichten linear durch dieselben Schritte.
+
 ### `Household` — Multi-Haushalt & Pause (`is_active`)
 
 - Alle Haushalte teilen sich **ein** Tuya- und **ein** Shelly-Cloud-Konto

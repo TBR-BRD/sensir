@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Neuer Haushalt – SensIR{% endblock %}
+{% block content %}
+<p><a href="/">&larr; Übersicht</a></p>
+<h1>Neuen Haushalt anlegen</h1>
+<p class="muted">Schritt 1 von 3: Haushalt</p>
+
+<form method="post" action="/onboarding">
+  <label>Name <input type="text" name="name" placeholder="z. B. Familie Meyer" required autofocus></label>
+  <label>Zeitzone <input type="text" name="timezone" value="Europe/Berlin"></label>
+  <button type="submit">Weiter zu Sensoren →</button>
+</form>
+{% endblock %}

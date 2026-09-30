@@ -114,3 +114,23 @@ button {
 }
 
 section { margin-bottom: 2rem; }
+
+.empty { color: var(--grey); }
+
+.error {
+  color: var(--red);
+  background: #fdecea;
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.button-link {
+  display: inline-block;
+  background: var(--magenta);
+  color: #fff;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}

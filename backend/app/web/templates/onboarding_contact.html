@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ household.name }} – Kontakt – SensIR{% endblock %}
+{% block content %}
+<p><a href="/">&larr; Übersicht</a></p>
+<h1>{{ household.name }}</h1>
+<p class="muted">Schritt 3 von 3: Kontakt</p>
+
+<p class="muted">
+  Ein Standard-Beobachtungsfenster 08:00–22:00 Uhr (alle Sensoren) ist bereits
+  aktiv. Weitere Fenster lassen sich später auf der Haushaltsseite einrichten.
+</p>
+
+<section>
+  <h2>Kontakte</h2>
+  {% if contacts %}
+  <table>
+    <tr><th>Name</th><th>Telegram-Chat-ID</th><th>Telefon</th><th>Priorität</th><th></th></tr>
+    {% for c in contacts %}
+    <tr>
+      <td>{{ c.name }}</td>
+      <td>{{ c.telegram_chat_id or '–' }}</td>
+      <td>{{ c.phone or '–' }}</td>
+      <td>{{ c.priority }}</td>
+      <td>
+        {% if c.telegram_chat_id %}
+        <form method="post" action="/onboarding/{{ household.id }}/contact/{{ c.id }}/test" style="display:inline">
+          <button type="submit">Testnachricht senden</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">Noch kein Kontakt angelegt.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Kontakt hinzufügen</h2>
+  <form method="post" action="/onboarding/{{ household.id }}/contact">
+    <label>Name <input type="text" name="name" required></label>
+    <label>Telegram-Chat-ID <input type="text" name="telegram_chat_id" placeholder="z. B. 44120705"></label>
+    <label>Telefon <input type="text" name="phone" placeholder="optional"></label>
+    <label>Priorität <input type="number" name="priority" value="0"></label>
+    <button type="submit">Kontakt hinzufügen</button>
+  </form>
+</section>
+
+<p><a href="/households/{{ household.id }}">Fertig – zur Haushaltsseite →</a></p>
+{% endblock %}
