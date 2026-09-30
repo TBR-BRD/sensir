@@ -1,0 +1,61 @@
+{# Wiederverwendeter Geräte-Picker: Tuya/Shelly-Cloud-Geräte zum Ankreuzen +
+   manuelle IR-Bridge-Erfassung. Erwartet: tuya_devices, tuya_error,
+   shelly_devices, shelly_error (siehe onboarding_sensors / household_add_sensors
+   Routen in app/web/routes.py). Wird innerhalb eines <form method="post">
+   eingebunden, das den Picker umschließt - definiert hier keine eigene Form. #}
+<section>
+  <h2>Tuya-/SmartLife-Geräte</h2>
+  {% if tuya_devices is none %}
+  <p class="muted">Tuya ist nicht konfiguriert (<code>TUYA_ENABLED</code> in <code>.env</code>).</p>
+  {% elif tuya_error %}
+  <p class="error">Tuya-Geräte konnten nicht geladen werden: {{ tuya_error }}</p>
+  {% elif not tuya_devices %}
+  <p class="muted">Keine (weiteren) unzugeordneten Tuya-Geräte verfügbar.</p>
+  {% else %}
+  <table>
+    <tr><th></th><th>Gerät</th><th>Name in SensIR</th></tr>
+    {% for d in tuya_devices %}
+    <tr>
+      <td><input type="checkbox" name="add_tuya_{{ d.external_id }}" id="tuya_{{ d.external_id }}"></td>
+      <td>
+        <label for="tuya_{{ d.external_id }}">{{ d.name }}</label>
+        <div class="muted">{{ d.category or d.product_name or '' }}{% if d.online %} · online{% elif d.online == false %} · offline{% endif %}</div>
+      </td>
+      <td><input type="text" name="name_tuya_{{ d.external_id }}" value="{{ d.name }}"></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Shelly-Geräte</h2>
+  {% if shelly_devices is none %}
+  <p class="muted">Shelly ist nicht konfiguriert (<code>SHELLY_ENABLED</code> in <code>.env</code>).</p>
+  {% elif shelly_error %}
+  <p class="error">Shelly-Geräte konnten nicht geladen werden: {{ shelly_error }}</p>
+  {% elif not shelly_devices %}
+  <p class="muted">Keine (weiteren) unzugeordneten Shelly-Geräte verfügbar.</p>
+  {% else %}
+  <table>
+    <tr><th></th><th>Gerät</th><th>Name in SensIR</th></tr>
+    {% for d in shelly_devices %}
+    <tr>
+      <td><input type="checkbox" name="add_shelly_{{ d.external_id }}" id="shelly_{{ d.external_id }}"></td>
+      <td>
+        <label for="shelly_{{ d.external_id }}">{{ d.name }}</label>
+        <div class="muted">{{ d.type or '' }}{% if d.online %} · online{% elif d.online == false %} · offline{% endif %}</div>
+      </td>
+      <td><input type="text" name="name_shelly_{{ d.external_id }}" value="{{ d.name }}"></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+</section>
+
+<section>
+  <h2>IR-Bridge (Tasmota, manuell)</h2>
+  <p class="muted">Kann nicht automatisch erkannt werden — MQTT-Topic aus der Tasmota-Konfiguration eintragen (leer lassen zum Überspringen).</p>
+  <input type="text" name="ir_name" placeholder="Name, z. B. Wohnzimmer">
+  <input type="text" name="ir_mqtt_topic" placeholder="MQTT-Topic, z. B. sensir-01">
+</section>

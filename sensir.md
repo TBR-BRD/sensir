@@ -110,6 +110,36 @@ gemeinsame Aktivitäts-Zeitreihe.
   der Assistent ersetzt diese Seite nicht, sondern führt nur beim ersten
   Einrichten linear durch dieselben Schritte.
 
+### Sensoren pflegen & Haushalt löschen (Haushaltsseite)
+
+- **Sensor hinzufügen**: "+ Sensor hinzufügen" auf der Haushaltsseite
+  (`GET/POST /households/{id}/sensors/add`) zeigt denselben Tuya-/Shelly-
+  Geräte-Picker wie Schritt 2 des Onboarding-Assistenten — Discovery-Logik
+  (`_discover_unassigned_devices()`) und Anlege-Logik
+  (`_add_sensors_from_form()`) sind als gemeinsame Helfer in
+  `app/web/routes.py` extrahiert, damit beide Stellen nicht auseinanderlaufen.
+  Das Picker-Markup selbst liegt als Jinja-Include `_sensor_picker.html`
+  ebenfalls nur einmal vor.
+- **Sensor bearbeiten**: Name umbenennen und Aktiv/Inaktiv umschalten direkt
+  in der Sensor-Tabelle der Haushaltsseite, "Speichern" pro Zeile
+  (`POST /households/{id}/sensors/{id}/edit`). Die Formularfelder sitzen in
+  den Tabellenzellen, die zugehörigen `<form>`-Tags liegen (HTML-technisch
+  bedingt — ein `<form>` darf keine Tabellenzellen-Grenzen überspannen)
+  unsichtbar außerhalb der Tabelle und sind über das `form="..."`-Attribut
+  der Inputs verknüpft.
+- **Sensor entfernen**: Button "Entfernen" pro Zeile (`POST
+  /households/{id}/sensors/{id}/delete`), mit Bestätigungsdialog
+  (`confirm()`). Löscht nur den Sensor, nicht seine bisherigen Ereignisse
+  (bleiben für den Export/die Historie erhalten) — der Sensor zählt danach
+  einfach in keinem Zeitfenster mehr mit.
+- **Haushalt löschen**: Button "Haushalt löschen" oben auf der
+  Haushaltsseite (`POST /households/{id}/delete`, ebenfalls mit
+  Bestätigungsdialog) löscht den Haushalt inklusive aller Sensoren,
+  Ereignisse, Kontakte und Zeitfenster per DB-Cascade (`DELETE
+  /api/households/{id}` macht dasselbe). Zum reinen Pausieren ohne
+  Datenverlust weiterhin "Überwachung pausieren" (`is_active=false`)
+  verwenden, nicht löschen.
+
 ### `Household` — Multi-Haushalt & Pause (`is_active`)
 
 - Alle Haushalte teilen sich **ein** Tuya- und **ein** Shelly-Cloud-Konto

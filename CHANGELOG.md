@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Sensoren bearbeiten/entfernen und Haushalt löschen
+
+Auf Nutzerwunsch, als Ergänzung zum Onboarding-Assistenten: fertig
+eingerichtete Haushalte ließen sich bisher nur per API ändern.
+
+- Haushaltsseite: "+ Sensor hinzufügen" öffnet denselben Tuya-/Shelly-
+  Geräte-Picker wie im Onboarding-Assistenten (Discovery- und Anlege-Logik
+  jetzt als gemeinsame Helfer `_discover_unassigned_devices()` /
+  `_add_sensors_from_form()` extrahiert, Picker-Markup als Include
+  `_sensor_picker.html`).
+- Sensor-Tabelle: Name umbenennen und Aktiv/Inaktiv umschalten direkt
+  inline ("Speichern"), Button "Entfernen" pro Sensor (mit
+  Bestätigungsdialog) — löscht den Sensor, nicht seine Ereignishistorie.
+- Neuer Button "Haushalt löschen" auf der Haushaltsseite (mit
+  Bestätigungsdialog) — löscht den Haushalt inkl. aller Sensoren,
+  Ereignisse, Kontakte, Zeitfenster per DB-Cascade.
+- Nebenbei behoben: `GET /households/{id}` einer nicht (mehr)
+  existierenden ID lieferte vorher einen 500er statt eines sauberen 404
+  (fiel beim Testen des Lösch-Flows auf).
+
 ### Onboarding-Assistent für neue Haushalte
 
 Auf Nutzerwunsch: neue Haushalte konnten bisher nur per `curl`/API angelegt

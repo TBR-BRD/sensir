@@ -58,6 +58,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 @router.get("/households/{household_id}")
 def household_detail(request: Request, household_id: int, db: Session = Depends(get_db)):
     household = db.get(Household, household_id)
+    if household is None:
+        raise HTTPException(404, "household not found")
     status = compute_status(db, household)
     sensors = db.execute(select(Sensor).where(Sensor.household_id == household_id)).scalars().all()
     contacts = db.execute(
@@ -137,6 +139,139 @@ def toggle_household_active(household_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(f"/households/{household_id}", status_code=303)
 
 
+def _discover_unassigned_devices(db: Session) -> dict:
+    """Tuya-/Shelly-Cloud-Geräte, die noch keinem Sensor zugeordnet sind -
+    gemeinsam genutzt vom Onboarding-Assistenten und vom "Sensor
+    hinzufügen"-Formular auf der Haushaltsseite."""
+    already_assigned = {
+        (s.kind, s.external_id) for s in db.execute(select(Sensor)).scalars().all()
+    }
+
+    tuya_devices: list[dict] | None = None
+    tuya_error: str | None = None
+    if settings.tuya_enabled:
+        try:
+            from app.ingest.tuya import list_cloud_devices as list_tuya_devices
+
+            tuya_devices = [
+                d for d in list_tuya_devices()
+                if (SensorKind.tuya, d.get("external_id")) not in already_assigned
+            ]
+        except Exception as exc:  # noqa: BLE001
+            tuya_error = str(exc)
+            tuya_devices = []
+
+    shelly_devices: list[dict] | None = None
+    shelly_error: str | None = None
+    if settings.shelly_enabled:
+        try:
+            from app.ingest.shelly import list_cloud_devices as list_shelly_devices
+
+            shelly_devices = [
+                d for d in list_shelly_devices()
+                if (SensorKind.shelly, d.get("external_id")) not in already_assigned
+            ]
+        except Exception as exc:  # noqa: BLE001
+            shelly_error = str(exc)
+            shelly_devices = []
+
+    return {
+        "tuya_devices": tuya_devices,
+        "tuya_error": tuya_error,
+        "shelly_devices": shelly_devices,
+        "shelly_error": shelly_error,
+    }
+
+
+def _add_sensors_from_form(db: Session, household_id: int, form) -> None:
+    """Legt Sensoren aus einem `_sensor_picker.html`-Formular an (Tuya-/
+    Shelly-Checkboxen `add_<kind>_<external_id>` + optionale IR-Bridge-
+    Felder). Wirft `IntegrityError` unverändert weiter, damit der Aufrufer
+    entscheidet, wohin bei einer Race-Condition (Gerät zwischenzeitlich
+    anderswo zugeordnet) zurückgeleitet wird."""
+    for key in form.keys():
+        if key.startswith("add_tuya_"):
+            external_id = key[len("add_tuya_"):]
+            name = (form.get(f"name_tuya_{external_id}") or "").strip() or external_id
+            db.add(Sensor(household_id=household_id, name=name, kind=SensorKind.tuya, external_id=external_id))
+        elif key.startswith("add_shelly_"):
+            external_id = key[len("add_shelly_"):]
+            name = (form.get(f"name_shelly_{external_id}") or "").strip() or external_id
+            db.add(Sensor(household_id=household_id, name=name, kind=SensorKind.shelly, external_id=external_id))
+
+    ir_topic = (form.get("ir_mqtt_topic") or "").strip()
+    if ir_topic:
+        ir_name = (form.get("ir_name") or "").strip() or ir_topic
+        db.add(Sensor(household_id=household_id, name=ir_name, kind=SensorKind.ir_bridge, mqtt_topic=ir_topic))
+
+    db.commit()
+
+
+@router.get("/households/{household_id}/sensors/add")
+def household_add_sensors_form(request: Request, household_id: int, db: Session = Depends(get_db)):
+    household = db.get(Household, household_id)
+    if household is None:
+        raise HTTPException(404, "household not found")
+    return templates.TemplateResponse(
+        "household_add_sensors.html",
+        {"request": request, "household": household, **_discover_unassigned_devices(db)},
+    )
+
+
+@router.post("/households/{household_id}/sensors/add")
+async def household_add_sensors(household_id: int, request: Request, db: Session = Depends(get_db)):
+    if db.get(Household, household_id) is None:
+        raise HTTPException(404, "household not found")
+    form = await request.form()
+    try:
+        _add_sensors_from_form(db, household_id, form)
+    except IntegrityError:
+        # z. B. ein Gerät wurde zwischenzeitlich schon anderswo zugeordnet
+        # (Race) - einfach zur selben Seite zurück, dort taucht es dann nicht
+        # mehr in der Auswahl auf.
+        db.rollback()
+        return RedirectResponse(f"/households/{household_id}/sensors/add", status_code=303)
+    return RedirectResponse(f"/households/{household_id}", status_code=303)
+
+
+@router.post("/households/{household_id}/sensors/{sensor_id}/edit")
+def household_edit_sensor(
+    household_id: int,
+    sensor_id: int,
+    name: str = Form(...),
+    is_active: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    sensor = db.execute(
+        select(Sensor).where(Sensor.id == sensor_id, Sensor.household_id == household_id)
+    ).scalar_one_or_none()
+    if sensor is not None:
+        sensor.name = name.strip() or sensor.name
+        sensor.is_active = is_active == "on"
+        db.commit()
+    return RedirectResponse(f"/households/{household_id}", status_code=303)
+
+
+@router.post("/households/{household_id}/sensors/{sensor_id}/delete")
+def household_delete_sensor(household_id: int, sensor_id: int, db: Session = Depends(get_db)):
+    sensor = db.execute(
+        select(Sensor).where(Sensor.id == sensor_id, Sensor.household_id == household_id)
+    ).scalar_one_or_none()
+    if sensor is not None:
+        db.delete(sensor)
+        db.commit()
+    return RedirectResponse(f"/households/{household_id}", status_code=303)
+
+
+@router.post("/households/{household_id}/delete")
+def household_delete(household_id: int, db: Session = Depends(get_db)):
+    household = db.get(Household, household_id)
+    if household is not None:
+        db.delete(household)
+        db.commit()
+    return RedirectResponse("/", status_code=303)
+
+
 @router.post("/households/{household_id}/windows")
 def add_window(
     household_id: int,
@@ -192,38 +327,6 @@ def onboarding_sensors(request: Request, household_id: int, db: Session = Depend
     if household is None:
         raise HTTPException(404, "household not found")
 
-    already_assigned = {
-        (s.kind, s.external_id) for s in db.execute(select(Sensor)).scalars().all()
-    }
-
-    tuya_devices: list[dict] | None = None
-    tuya_error: str | None = None
-    if settings.tuya_enabled:
-        try:
-            from app.ingest.tuya import list_cloud_devices as list_tuya_devices
-
-            tuya_devices = [
-                d for d in list_tuya_devices()
-                if (SensorKind.tuya, d.get("external_id")) not in already_assigned
-            ]
-        except Exception as exc:  # noqa: BLE001
-            tuya_error = str(exc)
-            tuya_devices = []
-
-    shelly_devices: list[dict] | None = None
-    shelly_error: str | None = None
-    if settings.shelly_enabled:
-        try:
-            from app.ingest.shelly import list_cloud_devices as list_shelly_devices
-
-            shelly_devices = [
-                d for d in list_shelly_devices()
-                if (SensorKind.shelly, d.get("external_id")) not in already_assigned
-            ]
-        except Exception as exc:  # noqa: BLE001
-            shelly_error = str(exc)
-            shelly_devices = []
-
     own_sensors = db.execute(select(Sensor).where(Sensor.household_id == household_id)).scalars().all()
 
     return templates.TemplateResponse(
@@ -232,10 +335,7 @@ def onboarding_sensors(request: Request, household_id: int, db: Session = Depend
             "request": request,
             "household": household,
             "own_sensors": own_sensors,
-            "tuya_devices": tuya_devices,
-            "tuya_error": tuya_error,
-            "shelly_devices": shelly_devices,
-            "shelly_error": shelly_error,
+            **_discover_unassigned_devices(db),
         },
     )
 
@@ -246,23 +346,8 @@ async def onboarding_add_sensors(household_id: int, request: Request, db: Sessio
         raise HTTPException(404, "household not found")
 
     form = await request.form()
-    for key in form.keys():
-        if key.startswith("add_tuya_"):
-            external_id = key[len("add_tuya_"):]
-            name = (form.get(f"name_tuya_{external_id}") or "").strip() or external_id
-            db.add(Sensor(household_id=household_id, name=name, kind=SensorKind.tuya, external_id=external_id))
-        elif key.startswith("add_shelly_"):
-            external_id = key[len("add_shelly_"):]
-            name = (form.get(f"name_shelly_{external_id}") or "").strip() or external_id
-            db.add(Sensor(household_id=household_id, name=name, kind=SensorKind.shelly, external_id=external_id))
-
-    ir_topic = (form.get("ir_mqtt_topic") or "").strip()
-    if ir_topic:
-        ir_name = (form.get("ir_name") or "").strip() or ir_topic
-        db.add(Sensor(household_id=household_id, name=ir_name, kind=SensorKind.ir_bridge, mqtt_topic=ir_topic))
-
     try:
-        db.commit()
+        _add_sensors_from_form(db, household_id, form)
     except IntegrityError:
         # z. B. ein Gerät wurde zwischenzeitlich schon anderswo zugeordnet
         # (Race) - einfach zur selben Seite zurück, dort taucht es dann nicht

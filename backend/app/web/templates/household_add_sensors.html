@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ household.name }} – Sensor hinzufügen – SensIR{% endblock %}
+{% block content %}
+<p><a href="/households/{{ household.id }}">&larr; {{ household.name }}</a></p>
+<h1>Sensor hinzufügen</h1>
+
+<form method="post" action="/households/{{ household.id }}/sensors/add">
+  {% include "_sensor_picker.html" %}
+  <button type="submit">Ausgewählte Sensoren hinzufügen</button>
+</form>
+{% endblock %}

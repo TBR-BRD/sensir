@@ -4,8 +4,12 @@
 <p><a href="/">&larr; Übersicht</a></p>
 <h1>{{ household.name }} {% if not household.is_active %}<span class="muted">(pausiert)</span>{% endif %}</h1>
 
-<form method="post" action="/households/{{ household.id }}/toggle-active">
+<form method="post" action="/households/{{ household.id }}/toggle-active" style="display:inline">
   <button type="submit">{% if household.is_active %}Überwachung pausieren{% else %}Überwachung fortsetzen{% endif %}</button>
+</form>
+<form method="post" action="/households/{{ household.id }}/delete" style="display:inline"
+      onsubmit="return confirm('{{ household.name }} inkl. aller Sensoren, Ereignisse, Kontakte und Historie unwiderruflich löschen?');">
+  <button type="submit" class="button-danger">Haushalt löschen</button>
 </form>
 
 <section class="status-banner {% if not household.is_active %}status-paused{% else %}status-{{ status.status.value if status.status else 'unknown' }}{% endif %}">
@@ -18,16 +22,34 @@
 
 <section>
   <h2>Sensoren</h2>
-  <ul>
+  <table>
+    <tr><th>Name</th><th>Quelle</th><th>ID/Topic</th><th>Aktiv</th><th></th></tr>
     {% for s in sensors %}
-    <li>
-      {{ s.name }} — {{ s.kind.value }} ({{ s.mqtt_topic or s.external_id }})
-      {% if not s.is_active %} – inaktiv{% endif %}
-      {% if s.config and s.config.get('confirmation_only') %} <span class="muted">(nur Bestätigung, zählt in keinem Zeitfenster)</span>{% endif %}
-      {% if s.config and s.config.get('emergency') %} <span class="muted">(Notrufknopf)</span>{% endif %}
-    </li>
+    {# Inputs liegen als Tabellenzellen vor, die zugehörigen <form>-Tags
+       darunter außerhalb der Tabelle (form/td dürfen sich nicht
+       überlappen) - über das form="..."-Attribut trotzdem verknüpft. #}
+    <tr>
+      <td><input type="text" name="name" value="{{ s.name }}" form="edit-sensor-{{ s.id }}" style="width:10rem;"></td>
+      <td>{{ s.kind.value }}</td>
+      <td class="muted">{{ s.mqtt_topic or s.external_id }}</td>
+      <td>
+        <input type="checkbox" name="is_active" form="edit-sensor-{{ s.id }}" {% if s.is_active %}checked{% endif %}>
+        {% if s.config and s.config.get('confirmation_only') %} <span class="muted">(nur Bestätigung)</span>{% endif %}
+        {% if s.config and s.config.get('emergency') %} <span class="muted">(Notrufknopf)</span>{% endif %}
+      </td>
+      <td>
+        <button type="submit" form="edit-sensor-{{ s.id }}">Speichern</button>
+        <button type="submit" form="delete-sensor-{{ s.id }}" class="button-danger">Entfernen</button>
+      </td>
+    </tr>
     {% endfor %}
-  </ul>
+  </table>
+  {% for s in sensors %}
+  <form id="edit-sensor-{{ s.id }}" method="post" action="/households/{{ household.id }}/sensors/{{ s.id }}/edit" hidden></form>
+  <form id="delete-sensor-{{ s.id }}" method="post" action="/households/{{ household.id }}/sensors/{{ s.id }}/delete" hidden
+        onsubmit="return confirm('Sensor {{ s.name }} entfernen? Bisherige Ereignisse bleiben in der Historie erhalten, der Sensor zählt aber in keinem Zeitfenster mehr mit.');"></form>
+  {% endfor %}
+  <p><a href="/households/{{ household.id }}/sensors/add">+ Sensor hinzufügen</a></p>
 </section>
 
 <section>
