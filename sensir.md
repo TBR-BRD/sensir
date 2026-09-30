@@ -84,6 +84,10 @@ gemeinsame Aktivitäts-Zeitreihe.
 
 ### Onboarding-Assistent für neue Haushalte (`app/web/routes.py`)
 
+Ausführliche Beschreibung mit komplettem Klickpfad, Sonderfällen und
+technischer Umsetzung:
+[`docs/haushalte-verwalten.md`](docs/haushalte-verwalten.md). Kurzfassung:
+
 - Geführter 3-Schritte-Assistent statt manuellem `POST /api/households`:
   "+ Neuen Haushalt anlegen" auf dem Dashboard → `/onboarding`.
   1. **Haushalt**: Name + Zeitzone (`GET/POST /onboarding`).
@@ -111,6 +115,8 @@ gemeinsame Aktivitäts-Zeitreihe.
   Einrichten linear durch dieselben Schritte.
 
 ### Sensoren pflegen & Haushalt löschen (Haushaltsseite)
+
+Ausführliche Beschreibung: [`docs/haushalte-verwalten.md`](docs/haushalte-verwalten.md).
 
 - **Sensor hinzufügen**: "+ Sensor hinzufügen" auf der Haushaltsseite
   (`GET/POST /households/{id}/sensors/add`) zeigt denselben Tuya-/Shelly-

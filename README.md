@@ -75,12 +75,16 @@ Die erste Migration wird beim Start automatisch ausgeführt
 (`alembic upgrade head` im Backend-Container). Dashboard danach unter
 `http://localhost:8000/`, API-Dokumentation unter `http://localhost:8000/docs`.
 
-## Neuen Haushalt anlegen
+## Neuen Haushalt anlegen, Sensoren pflegen, Haushalt löschen
 
-Am einfachsten über den Onboarding-Assistenten im Dashboard: "+ Neuen
-Haushalt anlegen" (`/onboarding`) führt in drei Schritten durch Haushalt →
+Am einfachsten über die Web-Oberfläche: "+ Neuen Haushalt anlegen" im
+Dashboard (`/onboarding`) führt in drei Schritten durch Haushalt →
 Sensoren (Tuya/Shelly-Geräte zum Ankreuzen, IR-Bridge manuell) → Kontakt +
-Testnachricht. Details: **[sensir.md, Onboarding-Assistent](sensir.md#onboarding-assistent-für-neue-haushalte-appwebroutespy)**.
+Testnachricht. Auf jeder Haushaltsseite lassen sich danach jederzeit
+weitere Sensoren hinzufügen, umbenennen, aktivieren/deaktivieren oder
+entfernen, und der ganze Haushalt löschen (mit Cascade auf alle
+zugehörigen Daten). Ausführliche Beschreibung mit jedem Klickpfad und
+Sonderfall: **[docs/haushalte-verwalten.md](docs/haushalte-verwalten.md)**.
 
 Alternativ manuell per API, siehe unten.
 
