@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ household.name }} – SensIR{% endblock %}
+{% block refresh %}<meta http-equiv="refresh" content="1800">{% endblock %}
 {% block content %}
 <p><a href="/">&larr; Übersicht</a></p>
 <h1>{{ household.name }} {% if not household.is_active %}<span class="muted">(pausiert)</span>{% endif %}</h1>
@@ -18,6 +19,96 @@
   {% elif status.status and status.status.value == 'negative' %}Bitte melde dich – keine Aktivität im erwarteten Zeitfenster!
   {% else %}Noch keine Auswertung für heute{% endif %}
   <div class="muted">Ereignisse seit Mitternacht: {{ status.events_since_midnight }}</div>
+</section>
+
+<section class="daily-activity">
+  <h2>Tagesübersicht</h2>
+  <p class="muted">
+    {{ today_activity_chart.event_count }} Ereignisse am {{ today_activity_chart.date.strftime('%d.%m.%Y') }}
+    · Ortszeit {{ today_activity_chart.timezone }}
+    · aktualisiert {{ today_activity_chart.updated_at.strftime('%H:%M') }}
+  </p>
+  {% set plot_left = 64 %}
+  {% set plot_width = 800 %}
+  {% set timeline_y = 62 %}
+  {% set bars_top = 130 %}
+  {% set bars_bottom = 250 %}
+  {% set bars_height = bars_bottom - bars_top %}
+  {% set max_count = today_activity_chart.max_hourly_count if today_activity_chart.max_hourly_count > 0 else 1 %}
+  <div class="daily-chart-scroll">
+    <svg class="daily-chart" viewBox="0 0 920 310" role="img" aria-label="Ereignisse heute über die Tageszeit und pro Stunde">
+      {% for hour in range(0, 25, 2) %}
+      {% set x = plot_left + hour * plot_width / 24 %}
+      <line class="chart-grid" x1="{{ x }}" y1="35" x2="{{ x }}" y2="{{ bars_bottom }}" />
+      <text class="chart-label" x="{{ x }}" y="{{ bars_bottom + 24 }}" text-anchor="middle">{{ '%02d:00'|format(hour) }}</text>
+      {% endfor %}
+      <text class="chart-section-label" x="{{ plot_left }}" y="25">Ereignisse im Tagesverlauf</text>
+      <line class="chart-axis" x1="{{ plot_left }}" y1="{{ timeline_y }}" x2="{{ plot_left + plot_width }}" y2="{{ timeline_y }}" />
+      {% for event in today_activity_chart.events %}
+      {% set x = plot_left + event.minute_of_day * plot_width / 1440 %}
+      <circle class="chart-event" cx="{{ x }}" cy="{{ timeline_y }}" r="3.5">
+        <title>{{ event.time }} · {{ event.sensor_name }}</title>
+      </circle>
+      {% endfor %}
+      <text class="chart-section-label" x="{{ plot_left }}" y="112">Ereignisse pro Stunde</text>
+      {% for division in range(0, 4) %}
+      {% set y = bars_bottom - division * bars_height / 3 %}
+      {% set value = (max_count * division / 3)|round|int %}
+      <line class="chart-grid" x1="{{ plot_left }}" y1="{{ y }}" x2="{{ plot_left + plot_width }}" y2="{{ y }}" />
+      <text class="chart-label" x="{{ plot_left - 8 }}" y="{{ y + 4 }}" text-anchor="end">{{ value }}</text>
+      {% endfor %}
+      <line class="chart-axis" x1="{{ plot_left }}" y1="{{ bars_bottom }}" x2="{{ plot_left + plot_width }}" y2="{{ bars_bottom }}" />
+      {% for count in today_activity_chart.hourly_counts %}
+      {% set bar_x = plot_left + loop.index0 * plot_width / 24 + 3 %}
+      {% set bar_width = plot_width / 24 - 6 %}
+      {% set bar_height = count * bars_height / max_count %}
+      <rect class="chart-bar" x="{{ bar_x }}" y="{{ bars_bottom - bar_height }}" width="{{ bar_width }}" height="{{ bar_height }}" rx="2">
+        <title>{{ '%02d:00'|format(loop.index0) }}–{{ '%02d:00'|format(loop.index0 + 1) }}: {{ count }} Ereignisse</title>
+      </rect>
+      {% endfor %}
+      <text class="chart-label" x="{{ plot_left + plot_width / 2 }}" y="{{ bars_bottom + 52 }}" text-anchor="middle">Uhrzeit</text>
+    </svg>
+  </div>
+  <p class="muted">Jeder Punkt entspricht einem Ereignis. Sicherheits- und Appliance-Ereignisse sind ausgeschlossen. Die Detailseite aktualisiert sich alle 30 Minuten.</p>
+</section>
+
+<section class="weekly-activity">
+  <h2>Wochenübersicht</h2>
+  <p class="muted">
+    {{ weekly_activity_chart.event_count }} Ereignisse vom
+    {{ weekly_activity_chart.week_start.strftime('%d.%m.') }} bis {{ weekly_activity_chart.week_end.strftime('%d.%m.%Y') }}
+    · Ortszeit {{ weekly_activity_chart.timezone }}
+    · aktualisiert {{ weekly_activity_chart.updated_at.strftime('%H:%M') }}
+  </p>
+  {% set grid_left = 155 %}
+  {% set cell_width = 34 %}
+  {% set row_height = 27 %}
+  {% set row_gap = 4 %}
+  {% set week_max = weekly_activity_chart.max_hourly_count if weekly_activity_chart.max_hourly_count > 0 else 1 %}
+  <div class="weekly-chart-scroll">
+    <svg class="weekly-chart" viewBox="0 0 1035 265" role="img" aria-label="Ereignisse je Stunde für Montag bis Sonntag">
+      {% for hour in range(0, 24, 2) %}
+      {% set x = grid_left + hour * cell_width + cell_width / 2 %}
+      <text class="chart-label" x="{{ x }}" y="25" text-anchor="middle">{{ '%02d:00'|format(hour) }}</text>
+      {% endfor %}
+      <text class="chart-label" x="{{ grid_left + 24 * cell_width }}" y="25" text-anchor="middle">24:00</text>
+      {% for day in weekly_activity_chart.days %}
+      {% set y = 38 + loop.index0 * (row_height + row_gap) %}
+      <text class="weekly-day-label" x="145" y="{{ y + row_height / 2 + 4 }}" text-anchor="end">{{ day.label }}</text>
+      {% for count in day.hourly_counts %}
+      {% set cell_x = grid_left + loop.index0 * cell_width %}
+      <rect class="weekly-hour-cell{% if count == 0 %} weekly-hour-empty{% endif %}"
+            x="{{ cell_x }}" y="{{ y }}" width="{{ cell_width - 2 }}" height="{{ row_height }}" rx="2"
+            {% if count > 0 %}style="opacity: {{ 0.12 + count / week_max * 0.88 }}"{% endif %}>
+        <title>{{ day.label }} {{ '%02d:00'|format(loop.index0) }}–{{ '%02d:00'|format(loop.index0 + 1) }}: {{ count }} Ereignisse</title>
+      </rect>
+      {% endfor %}
+      {% endfor %}
+      <text class="chart-label" x="{{ grid_left + 12 * cell_width }}" y="258" text-anchor="middle">Uhrzeit</text>
+    </svg>
+  </div>
+  <div class="weekly-chart-legend"><span>Weniger</span><span class="weekly-legend-gradient"></span><span>Mehr Ereignisse pro Stunde</span></div>
+  <p class="muted">Die Wochenansicht läuft von Montag bis Sonntag. Sicherheits- und Appliance-Ereignisse sind ausgeschlossen.</p>
 </section>
 
 <section>

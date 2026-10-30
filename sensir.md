@@ -46,7 +46,7 @@ Rauch-/Gasmelder lösen **unabhängig vom Zeitfenster sofort** einen Alarm aus.
    ├─ ml/window_model.py   → KernelDensity je Haushalt (über alle SensorEvents)
    ├─ alerting/telegram.py → sendet Alarme an konfigurierte Kontakte
    ├─ api/                 → REST (Haushalte, Sensoren, Quellen-Discovery, Kontakte, Zeitfenster, Status)
-   └─ web/                 → Dashboard (Ampel je Haushalt)
+   └─ web/                 → Dashboard (Ampel, Ereigniszahl, Tagesgrafik je Haushalt)
         │
         ▼
    Postgres (Events, Konfiguration, Historie)
@@ -522,12 +522,17 @@ Alle-Sensoren-Fenster ohne `sensor_id` profitiert vom ML-Modell).
 - `send_telegram_message(chat_id, text)` — einfacher `POST` an die Bot-API.
 - `send_telegram_document(chat_id, filename, content, caption)` — schickt
   eine Datei (`sendDocument`, multipart), genutzt vom Wochenexport (5.4).
+- `send_telegram_photo(chat_id, filename, content, caption)` — schickt ein
+  PNG-Bild mit `sendPhoto`, genutzt für manuelle Wochen-Heatmaps (5.6).
+- `telegram_bot.py` empfängt `message`-Updates per Long Polling, startet beim
+  App-Start und verwirft zuvor aufgelaufene Updates, damit alte Nachrichten
+  nicht verzögert Aktionen auslösen. Das funktioniert nur, wenn für den Bot
+  kein Telegram-Webhook aktiv ist.
 - Bot bei [@BotFather](https://t.me/BotFather) anlegen, Token in
   `TELEGRAM_BOT_TOKEN`.
-- `Contact.telegram_chat_id` wird aktuell **manuell** ermittelt: Person
-  schreibt dem Bot einmal, `chat_id` über
-  `https://api.telegram.org/bot<TOKEN>/getUpdates` auslesen. Kein
-  Self-Service-Onboarding (bewusste PoC-Lücke, siehe README).
+- Kontakte schreiben `/id`, um ihre eigene `chat_id` zu erhalten; der
+  SensIR-Kontakt wird weiter manuell in der Weboberfläche angelegt oder
+  aktualisiert.
 
 ### 5.4 Wöchentlicher CSV-Rohdaten-Export (`app/export.py`)
 
@@ -552,6 +557,34 @@ alle `SensorEvent`s der letzten 7 Tage als CSV und schickt sie per Telegram
   `POST /api/households/{id}/export?days=7`.
 - Jeder Versand wird in `alert_log` protokolliert (Erfolg/Misserfolg pro
   Kontakt), analog zur Kontakt-Testnachricht.
+
+### 5.5 Tages- und Wochenübersicht auf der Haushaltsdetailseite
+
+Die Detailseite (`/households/{id}`) zeigt oberhalb des Sensoren-Abschnitts
+eine SVG-Tagesgrafik: Punkte markieren einzelne Aktivitätsereignisse entlang
+der 24-Stunden-Achse, darunter zeigt ein Balkendiagramm die Anzahl je Stunde.
+Darunter folgt die Wochen-Heatmap: Montag bis Sonntag als Zeilen, die Stunden
+00 bis 23 als Spalten; dunklere Felder stehen für mehr Ereignisse in der
+Stunde. Die aktuelle Kalenderwoche beginnt am Montag, noch kommende Tage
+bleiben zunächst leer. Beide Grafiken verwenden die Zeitzone des Haushalts.
+Sicherheitsereignisse sowie `appliance_on`/`appliance_off` sind ausgeschlossen.
+Die Detailseite lädt alle 30 Minuten neu, sodass beide Grafiken und die
+übrigen Daten gemeinsam aktualisiert werden.
+
+### 5.6 Wochen-Heatmap per Telegram (`app/weekly_heatmap.py`)
+
+Der Button **„Heatmap an Telegram senden“** auf der Haushaltsübersicht erzeugt
+für jede aktive Familie ein PNG der aktuellen Montag-bis-Sonntag-Woche und
+sendet es an alle aktiven Kontakte dieses Haushalts mit Telegram-Chat-ID.
+Eine Heatmap wird pro Familie erzeugt und je Kontakt zugestellt; Haushalte ohne
+solchen Kontakt werden übersprungen. Der Versand wird je Kontakt im
+`alert_log` festgehalten. PNG-Erzeugung erfolgt mit Pillow (`Pillow==13.0.0`);
+`sendPhoto` lädt das Bild als `image/png` per multipart/form-data hoch.
+
+Im Telegram-Chat zeigt `/start` berechtigten Kontakten eine permanente
+Tastaturtaste **Heatmap**; das Senden von `Heatmap` oder `/heatmap` startet
+denselben Wochenexport an den anfragenden Chat. Aus Datenschutzgründen muss
+dieser Chat in jeder aktiven Familie als aktiver Kontakt eingetragen sein.
 
 ## 6. API-Referenz (`/api`, siehe auch `/docs` für Swagger)
 
@@ -755,9 +788,10 @@ Eigene Custom Card, zeigt eine Ampel-Übersicht aller sensir-Haushalte direkt
 in einem Home-Assistant-Dashboard — analog zur sensir-eigenen Web-Oberfläche,
 aber innerhalb von HA. Fragt die sensir-REST-API **direkt aus dem Browser**
 ab (kein eigener Home-Assistant-Custom-Component/Sensor nötig), pollt alle
-`refresh_seconds` (Standard 60) neu. Jede Haushalts-Kachel startet
-zugeklappt (nur Status); ein kleiner Pfeil klappt die letzten
-`event_limit` Ereignisse auf/zu (Standard 10, `GET
+`refresh_seconds` (Standard 60) neu. Jede Haushalts-Kachel zeigt die Zahl der
+heutigen Nicht-Sicherheitsereignisse (ab Mitternacht in der Zeitzone des
+Haushalts) unter dem Status. Jede Kachel startet zugeklappt; ein kleiner
+Pfeil klappt die letzten `event_limit` Ereignisse auf/zu (Standard 10, `GET
 /api/households/{id}/events?limit=`), ohne HA zu verlassen. Klick auf den
 Haushaltsnamen öffnet die vollständige sensir-Seite (Zeitfenster
 bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
@@ -774,7 +808,7 @@ bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
    `ssh hassio@<ha-host> 'sudo tee /config/www/sensir-card/sensir-card.js' < www/sensir-card.js`).
 3. Als Lovelace-Ressource eintragen: **Einstellungen → Dashboards → oben
    rechts (⋮) → Ressourcen → Ressource hinzufügen** —
-   URL `/local/sensir-card/sensir-card.js?v=1`, Typ „JavaScript-Modul“.
+   URL `/local/sensir-card/sensir-card.js?v=5`, Typ „JavaScript-Modul“.
    (Cache-Busting: bei jedem Karten-Update die `?v=`-Zahl hochzählen.)
 4. Karte zu einem Dashboard hinzufügen: **Dashboard bearbeiten → Karte
    hinzufügen → „SensIR“** (oder manuell per YAML, siehe unten).

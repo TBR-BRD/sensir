@@ -1,4 +1,4 @@
-const SENSIR_CARD_VERSION = "1.3.0";
+const SENSIR_CARD_VERSION = "1.4.0";
 
 /**
  * Custom Lovelace-Karte für sensir (https://github.com/TBR-BRD/sensir).
@@ -160,6 +160,7 @@ class SensirCard extends HTMLElement {
               <a class="hh-link" href="${base}/households/${s.household_id}" target="_blank" rel="noopener">
                 <div class="hh-name">${this._esc(s.household_name)}</div>
                 <div class="hh-status">${meta.label}</div>
+                <div class="hh-meta">${s.error ? "" : "Heute: " + (Number(s.events_since_midnight) || 0) + " Ereignisse"}</div>
                 <div class="hh-meta">${s.error ? "" : "Letzte Aktivität: " + this._esc(lastEvent)}</div>
               </a>
               <button class="hh-toggle" data-toggle="${s.household_id}" aria-label="Ereignisse ein-/ausblenden">
@@ -268,7 +269,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "sensir-card",
   name: "SensIR",
-  description: "Ampel-Übersicht der sensir-Haushalte mit auf-/zuklappbaren letzten Ereignissen",
+  description: "Ampel-Übersicht der sensir-Haushalte mit heutigen Ereignissen und auf-/zuklappbaren letzten Ereignissen",
 });
 
 console.info(`%c SENSIR-CARD %c v${SENSIR_CARD_VERSION} `, "color: #fff; background: #e20074; font-weight: 700;", "color: #e20074; background: #fff; font-weight: 700;");

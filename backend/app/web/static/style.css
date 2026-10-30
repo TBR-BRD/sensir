@@ -138,3 +138,24 @@ section { margin-bottom: 2rem; }
   border-radius: 4px;
   margin-bottom: 1rem;
 }
+
+.daily-chart-scroll { overflow-x: auto; }
+.daily-chart { display: block; width: 100%; min-width: 620px; height: auto; }
+.chart-grid { stroke: var(--border); stroke-width: 1; }
+.chart-axis { stroke: #555; stroke-width: 1.25; }
+.chart-label { fill: #555; font-size: 12px; }
+.chart-section-label { fill: #333; font-size: 13px; font-weight: 600; }
+.chart-event { fill: var(--magenta); opacity: 0.85; }
+.chart-bar { fill: var(--magenta); opacity: 0.9; }
+.weekly-chart-scroll { overflow-x: auto; }
+.weekly-chart { display: block; width: 100%; min-width: 760px; height: auto; }
+.weekly-day-label { fill: #444; font-size: 12px; }
+.weekly-hour-cell { fill: var(--magenta); stroke: #fff; stroke-width: 1; }
+.weekly-hour-empty { fill: #f1f1f1; stroke: var(--border); }
+.weekly-chart-legend { display: flex; align-items: center; gap: 0.5rem; color: var(--grey); font-size: 0.8rem; }
+.weekly-legend-gradient { width: 120px; height: 12px; border-radius: 3px; background: linear-gradient(to right, #f7d4e6, var(--magenta)); }
+.dashboard-actions { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.dashboard-actions .button-link { margin-bottom: 0; }
+.dashboard-actions form { margin: 0; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+.heatmap-notice { padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg); }

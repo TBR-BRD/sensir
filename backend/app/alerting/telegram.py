@@ -7,14 +7,20 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 TELEGRAM_API_URL = "https://api.telegram.org/bot{token}/{method}"
+HEATMAP_REPLY_KEYBOARD = {
+    "keyboard": [[{"text": "Heatmap"}]],
+    "resize_keyboard": True,
+    "is_persistent": True,
+}
 
 
-def send_telegram_message(chat_id: str, text: str) -> bool:
+def send_telegram_message(
+    chat_id: str, text: str, reply_markup: dict | None = None
+) -> bool:
     """Sends a message via the Telegram Bot API. Returns True on success.
 
-    Contacts get their chat_id by messaging the configured bot once and an
-    operator reading the chat_id off /getUpdates - there is no in-app
-    onboarding flow yet, see README.
+    Contacts receive the persistent Heatmap keyboard. Incoming text is handled
+    by app.telegram_bot; this function only sends bot messages.
     """
     if not settings.telegram_bot_token:
         logger.warning("TELEGRAM_BOT_TOKEN not configured, skipping message to %s: %s", chat_id, text)
@@ -22,7 +28,10 @@ def send_telegram_message(chat_id: str, text: str) -> bool:
 
     url = TELEGRAM_API_URL.format(token=settings.telegram_bot_token, method="sendMessage")
     try:
-        response = httpx.post(url, json={"chat_id": chat_id, "text": text}, timeout=10.0)
+        payload = {"chat_id": chat_id, "text": text}
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
+        response = httpx.post(url, json=payload, timeout=10.0)
         response.raise_for_status()
         return True
     except httpx.HTTPError:
@@ -54,4 +63,30 @@ def send_telegram_document(
         return True
     except httpx.HTTPError:
         logger.exception("Failed to send Telegram document to chat_id=%s", chat_id)
+        return False
+
+
+def send_telegram_photo(
+    chat_id: str, filename: str, content: bytes, caption: str | None = None
+) -> bool:
+    """Send a PNG photo through Telegram's multipart sendPhoto method."""
+    if not settings.telegram_bot_token:
+        logger.warning("TELEGRAM_BOT_TOKEN not configured, skipping photo to %s: %s", chat_id, filename)
+        return False
+
+    url = TELEGRAM_API_URL.format(token=settings.telegram_bot_token, method="sendPhoto")
+    data = {"chat_id": chat_id}
+    if caption:
+        data["caption"] = caption
+    try:
+        response = httpx.post(
+            url,
+            data=data,
+            files={"photo": (filename, content, "image/png")},
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        return True
+    except httpx.HTTPError:
+        logger.exception("Failed to send Telegram photo to chat_id=%s", chat_id)
         return False

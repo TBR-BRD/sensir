@@ -11,8 +11,9 @@ from app.alerting.telegram import send_telegram_message
 from app.config import settings
 from app.db import get_db
 from app.models import AlertLog, Contact, Household, ObservationWindow, Sensor, SensorKind, WindowSource
-from app.status_service import compute_status
+from app.status_service import compute_status, today_activity_chart, weekly_activity_chart
 from app.status_service import recent_events as recent_events_service
+from app.weekly_heatmap import send_weekly_heatmaps
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory="app/web/templates")
@@ -42,7 +43,16 @@ def _tuya_trial_warning() -> str | None:
 
 
 @router.get("/")
-def dashboard(request: Request, db: Session = Depends(get_db)):
+def dashboard(
+    request: Request,
+    heatmap_requested: int = 0,
+    heatmap_sent: int = 0,
+    heatmap_failed: int = 0,
+    heatmap_skipped: int = 0,
+    heatmap_households: int = 0,
+    heatmap_not_configured: int = 0,
+    db: Session = Depends(get_db),
+):
     households = db.execute(select(Household)).scalars().all()
     statuses = [compute_status(db, h) for h in households]
     return templates.TemplateResponse(
@@ -51,7 +61,28 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "request": request,
             "statuses": statuses,
             "tuya_trial_warning": _tuya_trial_warning(),
+            "telegram_configured": bool(settings.telegram_bot_token),
+            "heatmap_requested": bool(heatmap_requested),
+            "heatmap_sent": heatmap_sent,
+            "heatmap_failed": heatmap_failed,
+            "heatmap_skipped": heatmap_skipped,
+            "heatmap_households": heatmap_households,
+            "heatmap_not_configured": bool(heatmap_not_configured),
         },
+    )
+
+
+@router.post("/heatmap/weekly/send")
+def trigger_weekly_heatmaps(db: Session = Depends(get_db)):
+    result = send_weekly_heatmaps(db)
+    return RedirectResponse(
+        "/?heatmap_requested=1"
+        f"&heatmap_sent={int(result['sent'])}"
+        f"&heatmap_failed={int(result['failed'])}"
+        f"&heatmap_skipped={int(result['skipped_households'])}"
+        f"&heatmap_households={int(result['active_households'])}"
+        f"&heatmap_not_configured={int(result['not_configured'])}",
+        status_code=303,
     )
 
 
@@ -74,6 +105,8 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
             "request": request,
             "household": household,
             "status": status,
+            "today_activity_chart": today_activity_chart(db, household),
+            "weekly_activity_chart": weekly_activity_chart(db, household),
             "sensors": sensors,
             "sensor_names": sensor_names,
             "contacts": contacts,

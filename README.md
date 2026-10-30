@@ -42,7 +42,7 @@ Hintergrund, Personas, Business Model Canvas etc. siehe die Projekt-Doku
    ├─ ml/window_model.py   → KernelDensity je Haushalt (über alle SensorEvents)
    ├─ alerting/telegram.py → Alarme an konfigurierte Kontakte
    ├─ api/                 → REST (Haushalte, Sensoren, Quellen-Discovery, Kontakte, Zeitfenster, Status)
-   └─ web/                 → Dashboard (Ampel je Haushalt)
+   └─ web/                 → Dashboard (Ampel, Ereigniszahl und Tagesgrafik je Haushalt)
         │
         ▼
    Postgres (Events, Konfiguration, Historie)
@@ -83,7 +83,10 @@ Sensoren (Tuya/Shelly-Geräte zum Ankreuzen, IR-Bridge manuell) → Kontakt +
 Testnachricht. Auf jeder Haushaltsseite lassen sich danach jederzeit
 weitere Sensoren hinzufügen, umbenennen, aktivieren/deaktivieren oder
 entfernen, und der ganze Haushalt löschen (mit Cascade auf alle
-zugehörigen Daten). Ausführliche Beschreibung mit jedem Klickpfad und
+zugehörigen Daten). Die Detailseite zeigt oberhalb der Sensoren eine
+Tagesgrafik mit Ereigniszeitpunkten und Stundenbalken sowie eine
+Wochen-Heatmap (Montag bis Sonntag) mit Ereignissen pro Stunde. Beide
+Grafiken aktualisieren sich alle 30 Minuten. Ausführliche Beschreibung mit jedem Klickpfad und
 Sonderfall: **[docs/haushalte-verwalten.md](docs/haushalte-verwalten.md)**.
 
 Alternativ manuell per API, siehe unten.
@@ -156,10 +159,11 @@ als Fallback für neue/verwaiste Haushalte.
 ## Telegram-Bot
 
 Bot bei [@BotFather](https://t.me/BotFather) anlegen, Token in
-`TELEGRAM_BOT_TOKEN` eintragen. Die `chat_id` eines Kontakts bekommt man,
-indem die Person dem Bot einmal schreibt und man die ID über
-`https://api.telegram.org/bot<TOKEN>/getUpdates` ausliest — ein
-Onboarding-Flow in der App fehlt hier noch bewusst (PoC-Stand).
+`TELEGRAM_BOT_TOKEN` eintragen. Die Person schreibt dem Bot `/id`; die Antwort
+enthält ihre Chat-ID, die beim SensIR-Kontakt eingetragen wird. `/start` zeigt
+berechtigten Kontakten die Tastaturtaste **Heatmap**; alternativ löst `Heatmap`
+oder `/heatmap` die Wochenbilder aus. Ein Chat darf Heatmaps nur abrufen, wenn
+er in jeder aktiven Familie als aktiver Telegram-Kontakt hinterlegt ist.
 
 ## Home Assistant Lovelace-Karte
 
@@ -183,6 +187,10 @@ Einmal pro Woche bekommt jeder Haushalt automatisch eine CSV mit allen
 Sensor-Rohereignissen der letzten 7 Tage per Telegram zugeschickt (Grundlage
 für eigenes ML-Training) — `WEEKLY_EXPORT_*` in `.env`, sofort auslösbar über
 `POST /api/households/{id}/export`. Details: **[sensir.md, Abschnitt 5.4](sensir.md#54-wöchentlicher-csv-rohdaten-export-appexportpy)**.
+
+Auf der Haushaltsübersicht verschickt der Button **„Heatmap an Telegram senden“**
+für jede aktive Familie ein Wochen-Heatmap-Bild an deren aktive Telegram-Kontakte.
+Die Grafik zeigt Ereignisse je Stunde von Montag bis Sonntag.
 
 ## Bekannte Lücken / nächste Schritte
 

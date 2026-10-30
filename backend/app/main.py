@@ -9,6 +9,7 @@ from app import health, scheduler
 from app.api import router as api_router
 from app.config import settings
 from app.ingest import registry
+from app.telegram_bot import telegram_bot
 from app.web.routes import router as web_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -18,7 +19,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 async def lifespan(app: FastAPI):
     registry.start_all()
     scheduler.start()
+    telegram_bot.start()
     yield
+    telegram_bot.stop()
     scheduler.stop()
     registry.stop_all()
 

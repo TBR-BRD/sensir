@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Tagesereignisse in Web-Dashboard und Home Assistant
+
+Das SensIR-Web-Dashboard und die Lovelace-Karte zeigen unter jeder
+Haushaltskachel die Anzahl der heutigen Nicht-Sicherheitsereignisse. Die
+Zählung verwendet den lokalen Tagesbeginn der Haushaltszeitzone. Auf jeder
+Haushaltsdetailseite ergänzt eine Tagesgrafik die Ereignispunkte über 24
+Stunden sowie die Stundenverteilung als Balken. Darunter zeigt eine
+Wochen-Heatmap die Ereignisse je Stunde von Montag bis Sonntag. Sicherheits-
+und Appliance-Ereignisse bleiben in beiden Grafiken außen vor. Die Detailseite
+aktualisiert sich alle 30 Minuten.
+
+Der neue Button „Heatmap an Telegram senden“ verschickt für jede aktive
+Familie ein PNG der Wochen-Heatmap an deren aktive Telegram-Kontakte. Der
+Versand wird pro Empfänger protokolliert.
+
 ### Sensoren bearbeiten/entfernen und Haushalt löschen
 
 Auf Nutzerwunsch, als Ergänzung zum Onboarding-Assistenten: fertig
