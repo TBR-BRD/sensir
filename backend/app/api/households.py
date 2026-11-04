@@ -8,6 +8,7 @@ from app.db import get_db
 from app.export import export_and_send
 from app.models import Household
 from app.schemas import ExportResult, HouseholdCreate, HouseholdOut, HouseholdUpdate
+from app.status_service import today_activity_chart
 
 router = APIRouter(prefix="/households", tags=["households"])
 
@@ -32,6 +33,14 @@ def get_household(household_id: int, db: Session = Depends(get_db)):
     if household is None:
         raise HTTPException(404, "household not found")
     return household
+
+
+@router.get("/{household_id}/activity/today")
+def get_today_activity(household_id: int, db: Session = Depends(get_db)):
+    household = db.get(Household, household_id)
+    if household is None:
+        raise HTTPException(404, "household not found")
+    return today_activity_chart(db, household)
 
 
 @router.patch("/{household_id}", response_model=HouseholdOut)

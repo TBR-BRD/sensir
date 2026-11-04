@@ -1,4 +1,4 @@
-const SENSIR_CARD_VERSION = "1.4.0";
+const SENSIR_CARD_VERSION = "1.5.0";
 
 /**
  * Custom Lovelace-Karte für sensir (https://github.com/TBR-BRD/sensir).
@@ -94,9 +94,10 @@ class SensirCard extends HTMLElement {
 
       const statuses = await Promise.all(
         households.map(async (h) => {
-          const [statusResp, eventsResp] = await Promise.allSettled([
+          const [statusResp, eventsResp, activityResp] = await Promise.allSettled([
             fetch(`${base}/api/households/${h.id}/status`),
             fetch(`${base}/api/households/${h.id}/events?limit=${limit}`),
+            fetch(`${base}/api/households/${h.id}/activity/today`),
           ]);
           const status =
             statusResp.status === "fulfilled" && statusResp.value.ok
@@ -106,6 +107,10 @@ class SensirCard extends HTMLElement {
             eventsResp.status === "fulfilled" && eventsResp.value.ok
               ? await eventsResp.value.json()
               : [];
+          status.today_activity =
+            activityResp.status === "fulfilled" && activityResp.value.ok
+              ? await activityResp.value.json()
+              : null;
           return status;
         })
       );
@@ -153,6 +158,7 @@ class SensirCard extends HTMLElement {
               )
               .join("")
           : '<li class="dim">Keine Ereignisse</li>';
+        const todayChartHtml = this._dailyChart(s.today_activity);
 
         return `
           <div class="hh-card" style="border-left-color:${meta.color}">
@@ -167,6 +173,7 @@ class SensirCard extends HTMLElement {
                 ${expanded ? "▾" : "▸"}
               </button>
             </div>
+            <div class="hh-chart-wrap">${todayChartHtml}</div>
             ${expanded ? `<ul class="hh-events">${eventsHtml}</ul>` : ""}
           </div>`;
       })
@@ -196,6 +203,68 @@ class SensirCard extends HTMLElement {
     });
   }
 
+  _dailyChart(data) {
+    if (!data || !Array.isArray(data.hourly_counts)) {
+      return '<p class="hh-chart-empty">Tagesgrafik nicht verfügbar</p>';
+    }
+
+    const counts = Array.from({ length: 24 }, (_, hour) => {
+      const value = Number(data.hourly_counts[hour]) || 0;
+      return Math.max(0, value);
+    });
+    const maxCount = Math.max(1, ...counts);
+    const plotLeft = 48;
+    const plotWidth = 700;
+    const timelineY = 48;
+    const barsTop = 100;
+    const barsBottom = 210;
+    const barsHeight = barsBottom - barsTop;
+    const grid = [];
+    for (let hour = 0; hour <= 24; hour += 4) {
+      const x = plotLeft + (hour * plotWidth) / 24;
+      grid.push(`<line class="chart-grid" x1="${x}" y1="25" x2="${x}" y2="${barsBottom}" />`);
+      grid.push(`<text class="chart-label" x="${x}" y="${barsBottom + 20}" text-anchor="middle">${String(hour).padStart(2, "0")}:00</text>`);
+    }
+    for (let division = 0; division <= 3; division += 1) {
+      const y = barsBottom - (division * barsHeight) / 3;
+      const value = Math.round((maxCount * division) / 3);
+      grid.push(`<line class="chart-grid" x1="${plotLeft}" y1="${y}" x2="${plotLeft + plotWidth}" y2="${y}" />`);
+      grid.push(`<text class="chart-label" x="${plotLeft - 7}" y="${y + 4}" text-anchor="end">${value}</text>`);
+    }
+    const events = (Array.isArray(data.events) ? data.events : [])
+      .map((event) => {
+        const minute = Math.max(0, Math.min(1439, Number(event.minute_of_day) || 0));
+        const x = plotLeft + (minute * plotWidth) / 1440;
+        const title = `${this._esc(event.time || "")} · ${this._esc(event.sensor_name || "Sensor")}`;
+        return `<circle class="chart-event" cx="${x.toFixed(1)}" cy="${timelineY}" r="3"><title>${title}</title></circle>`;
+      })
+      .join("");
+    const bars = counts
+      .map((count, hour) => {
+        const width = plotWidth / 24 - 4;
+        const height = (count * barsHeight) / maxCount;
+        const x = plotLeft + (hour * plotWidth) / 24 + 2;
+        const y = barsBottom - height;
+        return `<rect class="chart-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${height.toFixed(1)}" rx="2"><title>${String(hour).padStart(2, "0")}:00–${String(hour + 1).padStart(2, "0")}:00: ${count} Ereignisse</title></rect>`;
+      })
+      .join("");
+    const date = data.date ? new Date(`${data.date}T12:00:00`).toLocaleDateString("de-DE") : "heute";
+
+    return `
+      <div class="hh-chart-title">Tagesübersicht · ${Number(data.event_count) || 0} Ereignisse · ${this._esc(date)}</div>
+      <div class="hh-chart-scroll">
+        <svg class="hh-daily-chart" viewBox="0 0 800 250" role="img" aria-label="Tagesereignisse über die Uhrzeit">
+          ${grid.join("")}
+          <text class="chart-section-label" x="${plotLeft}" y="16">Ereignisse im Tagesverlauf</text>
+          <line class="chart-axis" x1="${plotLeft}" y1="${timelineY}" x2="${plotLeft + plotWidth}" y2="${timelineY}" />
+          ${events}
+          <text class="chart-section-label" x="${plotLeft}" y="91">Ereignisse pro Stunde</text>
+          ${bars}
+          <line class="chart-axis" x1="${plotLeft}" y1="${barsBottom}" x2="${plotLeft + plotWidth}" y2="${barsBottom}" />
+        </svg>
+      </div>`;
+  }
+
   _renderError(err) {
     this.shadowRoot.innerHTML = `
       <style>${this._css()}</style>
@@ -214,7 +283,7 @@ class SensirCard extends HTMLElement {
     return `
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        grid-template-columns: minmax(0, 1fr);
         gap: 12px;
         padding: 16px;
         align-items: start;
@@ -237,6 +306,17 @@ class SensirCard extends HTMLElement {
       .hh-name { font-weight: 700; font-size: 1.05em; margin-bottom: 4px; color: var(--primary-text-color, #212121); }
       .hh-status { font-size: 0.9em; margin-bottom: 4px; color: var(--primary-text-color, #212121); }
       .hh-meta { font-size: 0.8em; color: var(--secondary-text-color, #757575); }
+      .hh-chart-wrap { padding: 0 12px 12px; }
+      .hh-chart-title { margin-bottom: 4px; color: var(--secondary-text-color, #757575); font-size: 0.8em; }
+      .hh-chart-scroll { overflow-x: auto; }
+      .hh-daily-chart { display: block; width: 100%; min-width: 480px; height: auto; }
+      .hh-chart-empty { margin: 0; color: var(--secondary-text-color, #757575); font-size: 0.8em; }
+      .chart-grid { stroke: var(--divider-color, #e0e0e0); stroke-width: 1; }
+      .chart-axis { stroke: var(--secondary-text-color, #777); stroke-width: 1; }
+      .chart-label { fill: var(--secondary-text-color, #757575); font-size: 11px; }
+      .chart-section-label { fill: var(--primary-text-color, #333); font-size: 11px; font-weight: 600; }
+      .chart-event { fill: #e20074; opacity: 0.85; }
+      .chart-bar { fill: #e20074; opacity: 0.9; }
       .hh-toggle {
         flex-shrink: 0;
         background: none;
@@ -269,7 +349,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "sensir-card",
   name: "SensIR",
-  description: "Ampel-Übersicht der sensir-Haushalte mit heutigen Ereignissen und auf-/zuklappbaren letzten Ereignissen",
+  description: "Einspaltige SensIR-Haushaltsübersicht mit Tagesgrafik und auf-/zuklappbaren letzten Ereignissen",
 });
 
 console.info(`%c SENSIR-CARD %c v${SENSIR_CARD_VERSION} `, "color: #fff; background: #e20074; font-weight: 700;", "color: #e20074; background: #fff; font-weight: 700;");
