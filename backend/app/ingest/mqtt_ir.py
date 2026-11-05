@@ -17,7 +17,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.db import session_scope
 from app.ingest.base import Source
-from app.models import Sensor, SensorEvent, SensorKind
+from app.models import Household, Sensor, SensorEvent, SensorKind
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +38,19 @@ def _handle_message(topic: str, payload: bytes) -> None:
 
     sensor_topic = _topic_base(topic)
     with session_scope() as session:
-        sensor = session.execute(
-            select(Sensor).where(
+        row = session.execute(
+            select(Sensor, Household.is_active)
+            .join(Household, Household.id == Sensor.household_id)
+            .where(
                 Sensor.mqtt_topic == sensor_topic,
                 Sensor.kind == SensorKind.ir_bridge,
             )
-        ).scalar_one_or_none()
-        if sensor is None:
+        ).first()
+        if row is None:
             logger.warning("IR-Ereignis von unregistriertem Topic '%s' verworfen", sensor_topic)
             return
-        if not sensor.is_active:
+        sensor, household_active = row
+        if not sensor.is_active or sensor.is_archived or not household_active:
             return
         now = dt.datetime.now(dt.timezone.utc)
         session.add(

@@ -92,13 +92,16 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
     if household is None:
         raise HTTPException(404, "household not found")
     status = compute_status(db, household)
-    sensors = db.execute(select(Sensor).where(Sensor.household_id == household_id)).scalars().all()
+    all_household_sensors = db.execute(
+        select(Sensor).where(Sensor.household_id == household_id)
+    ).scalars().all()
+    sensors = [sensor for sensor in all_household_sensors if not sensor.is_archived]
     contacts = db.execute(
         select(Contact).where(Contact.household_id == household_id).order_by(Contact.priority)
     ).scalars().all()
     windows = db.execute(select(ObservationWindow).where(ObservationWindow.household_id == household_id)).scalars().all()
     events = recent_events_service(db, household, limit=20)
-    sensor_names = {s.id: s.name for s in sensors}
+    sensor_names = {s.id: s.name for s in all_household_sensors}
     return templates.TemplateResponse(
         "household.html",
         {
@@ -276,7 +279,11 @@ def household_edit_sensor(
     db: Session = Depends(get_db),
 ):
     sensor = db.execute(
-        select(Sensor).where(Sensor.id == sensor_id, Sensor.household_id == household_id)
+        select(Sensor).where(
+            Sensor.id == sensor_id,
+            Sensor.household_id == household_id,
+            Sensor.is_archived.is_(False),
+        )
     ).scalar_one_or_none()
     if sensor is not None:
         sensor.name = name.strip() or sensor.name
@@ -288,10 +295,22 @@ def household_edit_sensor(
 @router.post("/households/{household_id}/sensors/{sensor_id}/delete")
 def household_delete_sensor(household_id: int, sensor_id: int, db: Session = Depends(get_db)):
     sensor = db.execute(
-        select(Sensor).where(Sensor.id == sensor_id, Sensor.household_id == household_id)
+        select(Sensor).where(
+            Sensor.id == sensor_id,
+            Sensor.household_id == household_id,
+            Sensor.is_archived.is_(False),
+        )
     ).scalar_one_or_none()
     if sensor is not None:
-        db.delete(sensor)
+        sensor.is_active = False
+        sensor.is_archived = True
+        sensor.external_id = None
+        sensor.mqtt_topic = None
+        windows = db.execute(
+            select(ObservationWindow).where(ObservationWindow.sensor_id == sensor.id)
+        ).scalars().all()
+        for window in windows:
+            window.is_active = False
         db.commit()
     return RedirectResponse(f"/households/{household_id}", status_code=303)
 
@@ -360,7 +379,12 @@ def onboarding_sensors(request: Request, household_id: int, db: Session = Depend
     if household is None:
         raise HTTPException(404, "household not found")
 
-    own_sensors = db.execute(select(Sensor).where(Sensor.household_id == household_id)).scalars().all()
+    own_sensors = db.execute(
+        select(Sensor).where(
+            Sensor.household_id == household_id,
+            Sensor.is_archived.is_(False),
+        )
+    ).scalars().all()
 
     return templates.TemplateResponse(
         "onboarding_sensors.html",

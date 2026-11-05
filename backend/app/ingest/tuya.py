@@ -13,7 +13,7 @@ from app.db import session_scope
 from app.ingest.base import PollingSource
 from app.ingest.normalize import normalize_tuya
 from app.ingest.sink import record_events
-from app.models import Sensor, SensorKind
+from app.models import Household, Sensor, SensorKind
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +61,13 @@ class TuyaSource(PollingSource):
         with session_scope() as session:
             return list(
                 session.execute(
-                    select(Sensor).where(
-                        Sensor.kind == SensorKind.tuya, Sensor.is_active.is_(True)
+                    select(Sensor)
+                    .join(Household, Household.id == Sensor.household_id)
+                    .where(
+                        Sensor.kind == SensorKind.tuya,
+                        Sensor.is_active.is_(True),
+                        Sensor.is_archived.is_(False),
+                        Household.is_active.is_(True),
                     )
                 ).scalars().all()
             )
@@ -121,8 +126,14 @@ class TuyaSource(PollingSource):
                 return
             with session_scope() as session:
                 sensor = session.execute(
-                    select(Sensor).where(
-                        Sensor.kind == SensorKind.tuya, Sensor.external_id == str(dev_id)
+                    select(Sensor)
+                    .join(Household, Household.id == Sensor.household_id)
+                    .where(
+                        Sensor.kind == SensorKind.tuya,
+                        Sensor.external_id == str(dev_id),
+                        Sensor.is_active.is_(True),
+                        Sensor.is_archived.is_(False),
+                        Household.is_active.is_(True),
                     )
                 ).scalar_one_or_none()
                 threshold = float((sensor.config or {}).get("on_threshold_w", 10.0)) if sensor else 10.0

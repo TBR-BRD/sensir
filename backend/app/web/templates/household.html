@@ -14,7 +14,7 @@
 </form>
 
 <section class="status-banner {% if not household.is_active %}status-paused{% else %}status-{{ status.status.value if status.status else 'unknown' }}{% endif %}">
-  {% if not household.is_active %}Überwachung ist pausiert – keine Auswertung, keine Alarme.
+  {% if not household.is_active %}Haushalt pausiert – keine neuen Sensordaten, keine Auswertung, keine Alarme.
   {% elif status.status and status.status.value == 'positive' %}Alles in Ordnung
   {% elif status.status and status.status.value == 'negative' %}Bitte melde dich – keine Aktivität im erwarteten Zeitfenster!
   {% else %}Noch keine Auswertung für heute{% endif %}
@@ -138,7 +138,7 @@
   {% for s in sensors %}
   <form id="edit-sensor-{{ s.id }}" method="post" action="/households/{{ household.id }}/sensors/{{ s.id }}/edit" hidden></form>
   <form id="delete-sensor-{{ s.id }}" method="post" action="/households/{{ household.id }}/sensors/{{ s.id }}/delete" hidden
-        onsubmit="return confirm('Sensor {{ s.name }} entfernen? Bisherige Ereignisse bleiben in der Historie erhalten, der Sensor zählt aber in keinem Zeitfenster mehr mit.');"></form>
+        onsubmit="return confirm('Sensor {{ s.name }} aus der Überwachung entfernen? Der Sensor wird archiviert, bisherige Ereignisse bleiben erhalten und zugehörige Beobachtungsfenster werden deaktiviert.');"></form>
   {% endfor %}
   <p><a href="/households/{{ household.id }}/sensors/add">+ Sensor hinzufügen</a></p>
 </section>
@@ -155,7 +155,7 @@
       <td>{{ w.end_time }}</td>
       <td>{{ w.min_actions }}</td>
       <td>{{ sensor_names.get(w.sensor_id, 'Alle Sensoren') if w.sensor_id else 'Alle Sensoren' }}</td>
-      <td>{{ w.source.value }}{% if w.confidence %} ({{ '%.0f'|format(w.confidence * 100) }}%){% endif %}</td>
+      <td>{{ w.source.value }}{% if w.confidence %} ({{ '%.0f'|format(w.confidence * 100) }}%){% endif %}{% if not w.is_active %} (inaktiv){% endif %}</td>
     </tr>
     {% endfor %}
   </table>

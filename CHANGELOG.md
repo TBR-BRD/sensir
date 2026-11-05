@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### SensIR-Übersicht in Home Assistant
+
+Die Haushaltskarten erscheinen untereinander. Unter „Letzte Aktivität“ zeigt
+jede Karte eine Tagesgrafik mit Ereigniszeitpunkten und Stundenbalken. Die
+Karte lädt die Stundenwerte über `GET /api/households/{id}/activity/today`.
+
+### Pause stoppt Sensordaten und entfernte Sensoren behalten ihre Historie
+
+Pausierte Haushalte werden jetzt bereits beim Ingest ausgeschlossen. Sensoren
+werden beim Entfernen archiviert statt physisch gelöscht; Ereignishistorie
+bleibt erhalten, die Geräteidentität wird freigegeben und zugehörige
+Beobachtungsfenster werden deaktiviert. Migration `0005` ergänzt das
+Archivierungskennzeichen.
+
 ### Tagesereignisse in Web-Dashboard und Home Assistant
 
 Das SensIR-Web-Dashboard und die Lovelace-Karte zeigen unter jeder

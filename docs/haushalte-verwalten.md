@@ -121,20 +121,14 @@ Button **"Entfernen"** pro Sensor-Zeile
 Bestätigungsdialog (`confirm()` im Browser, beschreibt in der Meldung,
 dass nur die Zuordnung entfernt wird).
 
-- Löscht die `Sensor`-Zeile selbst. Bereits empfangene Ereignisse
-  (`events`-Tabelle) bleiben erhalten — sie referenzieren den Sensor über
-  `sensor_id`, das Löschen des Sensors löscht *nicht* rückwirkend die
-  Historie (kein Cascade in diese Richtung). Für den CSV-Export
-  (`GET /api/households/{id}/export`) bedeutet das: alte Ereignisse
-  dieses Sensors tauchen weiterhin auf, nur ohne dass ihnen noch ein
-  aktiver Sensor zugeordnet ist.
-- Ein entfernter Sensor zählt danach in keinem Zeitfenster mehr mit — auch
-  nicht in Fenstern, die vorher explizit auf ihn gescoped waren
-  (`ObservationWindow.sensor_id`). Ein solches Fenster bleibt bestehen,
-  liefert aber ab sofort keine Ereignisse mehr und wird dauerhaft negativ
-  auswerten, bis es manuell gelöscht oder umgehängt wird (aktuell nur per
-  direktem DB-Zugriff oder `DELETE`/`PATCH` über die API möglich, kein
-  UI-Button für Zeitfenster-Löschung).
+- Archiviert den Sensor: Er verschwindet aus der Sensorliste und wird
+  deaktiviert. Seine Geräte-ID bzw. sein MQTT-Topic wird freigegeben, damit
+  das Gerät später neu zugeordnet werden kann. Die Sensorzeile bleibt als
+  historischer Bezug erhalten; bereits empfangene Ereignisse und CSV-Exporte
+  bleiben damit verfügbar.
+- Beobachtungsfenster, die explizit auf diesen Sensor gescoped waren, werden
+  deaktiviert. So bleibt ihre Konfiguration erhalten, wird aber nicht
+  unerwartet zu einem haushaltsweiten Fenster.
 - Der Cloud-Anbieter (Tuya/SmartLife-App bzw. Shelly-App) bekommt davon
   nichts mit — das Gerät bleibt dort unverändert bestehen und weiter mit
   dem Cloud-Konto verbunden. Es taucht danach wieder als "unzugeordnet"

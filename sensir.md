@@ -135,9 +135,10 @@ Ausführliche Beschreibung: [`docs/haushalte-verwalten.md`](docs/haushalte-verwa
   der Inputs verknüpft.
 - **Sensor entfernen**: Button "Entfernen" pro Zeile (`POST
   /households/{id}/sensors/{id}/delete`), mit Bestätigungsdialog
-  (`confirm()`). Löscht nur den Sensor, nicht seine bisherigen Ereignisse
-  (bleiben für den Export/die Historie erhalten) — der Sensor zählt danach
-  einfach in keinem Zeitfenster mehr mit.
+  (`confirm()`). Archiviert und deaktiviert den Sensor statt seine Zeile zu
+  löschen, damit Ereignisse und CSV-Historie erhalten bleiben. Die Geräte-ID
+  bzw. das MQTT-Topic wird freigegeben. Zugeordnete Beobachtungsfenster werden
+  deaktiviert.
 - **Haushalt löschen**: Button "Haushalt löschen" oben auf der
   Haushaltsseite (`POST /households/{id}/delete`, ebenfalls mit
   Bestätigungsdialog) löscht den Haushalt inklusive aller Sensoren,
@@ -157,13 +158,13 @@ Ausführliche Beschreibung: [`docs/haushalte-verwalten.md`](docs/haushalte-verwa
   alle beobachteten Wohnungen verknüpft hat.
 - `Household.is_active` (Migration `0003_household_active`, Default `true`)
   pausiert einen Haushalt **ohne** ihn zu löschen: bei `is_active=False`
-  überspringt `run_periodic_check()` (`alerting/engine.py`) den Haushalt
-  komplett (keine Zeitfenster-Auswertung, keine Alarme — auch keine
-  Sofort-Alarme bei Rauch/Gas, siehe `_check_safety` im selben Loop) und
-  `train_all_household_models()` (`ml/window_model.py`) trainiert kein
-  Modell für ihn. Events werden weiter aufgezeichnet (Sensoren senden
-  unverändert), nur die Auswertung ruht — gedacht für z. B. einen
-  Klinikaufenthalt der beobachteten Person.
+  werden seine Sensoren von MQTT-, Shelly- und Tuya-Ingest ausgeschlossen;
+  `record_events()` prüft den aktiven Zustand zusätzlich, bevor Ereignisse
+  gespeichert werden. `run_periodic_check()` (`alerting/engine.py`)
+  überspringt den Haushalt (keine Zeitfenster-Auswertung, keine Alarme —
+  auch keine Sofort-Alarme bei Rauch/Gas) und
+  `train_all_household_models()` (`ml/window_model.py`) trainiert kein Modell
+  für ihn. Ereignishistorie bleibt erhalten.
 - Umschalten: Button "Überwachung pausieren"/"fortsetzen" im
   Haushalts-Dashboard (`POST /households/{id}/toggle-active`), oder
   `PATCH /api/households/{id}` mit `{"is_active": false}`.
@@ -790,8 +791,10 @@ aber innerhalb von HA. Fragt die sensir-REST-API **direkt aus dem Browser**
 ab (kein eigener Home-Assistant-Custom-Component/Sensor nötig), pollt alle
 `refresh_seconds` (Standard 60) neu. Jede Haushalts-Kachel zeigt die Zahl der
 heutigen Nicht-Sicherheitsereignisse (ab Mitternacht in der Zeitzone des
-Haushalts) unter dem Status. Jede Kachel startet zugeklappt; ein kleiner
-Pfeil klappt die letzten `event_limit` Ereignisse auf/zu (Standard 10, `GET
+Haushalts) unter dem Status und darunter eine Tagesgrafik mit Ereignispunkten
+und Stundenbalken (`GET /api/households/{id}/activity/today`). Die Haushalte
+stehen untereinander. Jede Kachel startet mit zugeklappten letzten Ereignissen;
+ein kleiner Pfeil klappt `event_limit` Ereignisse auf/zu (Standard 10, `GET
 /api/households/{id}/events?limit=`), ohne HA zu verlassen. Klick auf den
 Haushaltsnamen öffnet die vollständige sensir-Seite (Zeitfenster
 bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
@@ -808,7 +811,7 @@ bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
    `ssh hassio@<ha-host> 'sudo tee /config/www/sensir-card/sensir-card.js' < www/sensir-card.js`).
 3. Als Lovelace-Ressource eintragen: **Einstellungen → Dashboards → oben
    rechts (⋮) → Ressourcen → Ressource hinzufügen** —
-   URL `/local/sensir-card/sensir-card.js?v=5`, Typ „JavaScript-Modul“.
+   URL `/local/sensir-card/sensir-card.js?v=6`, Typ „JavaScript-Modul“.
    (Cache-Busting: bei jedem Karten-Update die `?v=`-Zahl hochzählen.)
 4. Karte zu einem Dashboard hinzufügen: **Dashboard bearbeiten → Karte
    hinzufügen → „SensIR“** (oder manuell per YAML, siehe unten).

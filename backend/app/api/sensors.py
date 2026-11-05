@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Sensor, SensorKind
+from app.models import ObservationWindow, Sensor, SensorKind
 from app.schemas import SensorCreate, SensorOut, SensorUpdate
 
 router = APIRouter(prefix="/sensors", tags=["sensors"])
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/sensors", tags=["sensors"])
 
 @router.get("", response_model=list[SensorOut])
 def list_sensors(household_id: int | None = None, db: Session = Depends(get_db)):
-    query = select(Sensor)
+    query = select(Sensor).where(Sensor.is_archived.is_(False))
     if household_id is not None:
         query = query.where(Sensor.household_id == household_id)
     return db.execute(query).scalars().all()
@@ -39,7 +39,7 @@ def create_sensor(payload: SensorCreate, db: Session = Depends(get_db)):
 @router.patch("/{sensor_id}", response_model=SensorOut)
 def update_sensor(sensor_id: int, payload: SensorUpdate, db: Session = Depends(get_db)):
     sensor = db.get(Sensor, sensor_id)
-    if sensor is None:
+    if sensor is None or sensor.is_archived:
         raise HTTPException(404, "Sensor nicht gefunden")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(sensor, field, value)
@@ -51,7 +51,17 @@ def update_sensor(sensor_id: int, payload: SensorUpdate, db: Session = Depends(g
 @router.delete("/{sensor_id}", status_code=204)
 def delete_sensor(sensor_id: int, db: Session = Depends(get_db)):
     sensor = db.get(Sensor, sensor_id)
-    if sensor is None:
+    if sensor is None or sensor.is_archived:
         raise HTTPException(404, "Sensor nicht gefunden")
-    db.delete(sensor)
+    sensor.is_active = False
+    sensor.is_archived = True
+    # Release the cloud identity/topic so the device can be assigned again.
+    # Keep the sensor row as the historical parent of existing events.
+    sensor.external_id = None
+    sensor.mqtt_topic = None
+    windows = db.execute(
+        select(ObservationWindow).where(ObservationWindow.sensor_id == sensor.id)
+    ).scalars().all()
+    for window in windows:
+        window.is_active = False
     db.commit()

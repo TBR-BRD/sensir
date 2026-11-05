@@ -9,14 +9,22 @@ from sqlalchemy import select
 
 from app.db import session_scope
 from app.ingest.normalize import CanonEvent
-from app.models import Sensor, SensorEvent, SensorKind
+from app.models import Household, Sensor, SensorEvent, SensorKind
 
 logger = logging.getLogger(__name__)
 
 
 def sensor_by_external(session, kind: SensorKind, external_id: str) -> Sensor | None:
     return session.execute(
-        select(Sensor).where(Sensor.kind == kind, Sensor.external_id == str(external_id))
+        select(Sensor)
+        .join(Household, Household.id == Sensor.household_id)
+        .where(
+            Sensor.kind == kind,
+            Sensor.external_id == str(external_id),
+            Sensor.is_active.is_(True),
+            Sensor.is_archived.is_(False),
+            Household.is_active.is_(True),
+        )
     ).scalar_one_or_none()
 
 
@@ -42,8 +50,6 @@ def record_events(
         sensor = sensor_by_external(session, kind, external_id)
         if sensor is None:
             logger.debug("Ereignis von unbekanntem %s-Gerät '%s' verworfen", kind.value, external_id)
-            return 0
-        if not sensor.is_active:
             return 0
         forced_safety = bool((sensor.config or {}).get("emergency"))
         now = dt.datetime.now(dt.timezone.utc)

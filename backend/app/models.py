@@ -46,8 +46,8 @@ class Household(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
     timezone: Mapped[str] = mapped_column(String(64), default="Europe/Berlin")
-    # Pausiert Zeitfenster-/ML-Auswertung und Alarme, ohne Haushalt + Historie
-    # zu löschen (z. B. während eines Klinikaufenthalts der beobachteten Person).
+    # Pausiert Ingest, Zeitfenster-/ML-Auswertung und Alarme, ohne Haushalt +
+    # Historie zu löschen (z. B. während eines Klinikaufenthalts).
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.utcnow)
 
@@ -76,6 +76,9 @@ class Sensor(Base):
     config: Mapped[dict] = mapped_column(JSON, default=dict)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Archived sensors are hidden from configuration while their row remains
+    # available for historical SensorEvent foreign keys.
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     installed_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.utcnow)
     last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
