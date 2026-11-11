@@ -100,7 +100,7 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
         select(Contact).where(Contact.household_id == household_id).order_by(Contact.priority)
     ).scalars().all()
     windows = db.execute(select(ObservationWindow).where(ObservationWindow.household_id == household_id)).scalars().all()
-    events = recent_events_service(db, household, limit=20)
+    events = recent_events_service(db, household)
     sensor_names = {s.id: s.name for s in all_household_sensors}
     return templates.TemplateResponse(
         "household.html",

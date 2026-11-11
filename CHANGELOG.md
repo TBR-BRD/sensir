@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Vollständige Ereignisliste pro Haushalt
+
+Die SensIR-Haushaltsdetailseite und die aufklappbaren Home-Assistant-Kacheln
+zeigen jetzt alle gespeicherten Ereignisse statt der bisherigen letzten 20
+bzw. standardmäßig 10. Die REST-API liefert ohne `limit` ebenfalls alle
+Ereignisse; `?limit=` bleibt als optionale Begrenzung verfügbar.
+
 ### SensIR-Übersicht in Home Assistant
 
 Die Haushaltskarten erscheinen untereinander. Unter „Letzte Aktivität“ zeigt

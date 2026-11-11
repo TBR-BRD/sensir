@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -10,9 +10,16 @@ router = APIRouter(prefix="/households/{household_id}/events", tags=["events"])
 
 
 @router.get("", response_model=list[SensorEventOut])
-def list_recent_events(household_id: int, limit: int = 10, db: Session = Depends(get_db)):
-    """Die letzten `limit` (Standard 10) Sensorereignisse des Haushalts,
-    neueste zuerst. Genutzt u. a. von der Home-Assistant-Lovelace-Karte."""
+def list_recent_events(
+    household_id: int,
+    limit: int | None = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+):
+    """Alle Sensorereignisse des Haushalts, neueste zuerst.
+
+    Mit optionalem `limit` kann die Antwort auf die neuesten Ereignisse
+    begrenzt werden. Genutzt u. a. von der Home-Assistant-Lovelace-Karte.
+    """
     household = db.get(Household, household_id)
     if household is None:
         raise HTTPException(404, "household not found")

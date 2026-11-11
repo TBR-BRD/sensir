@@ -1,4 +1,4 @@
-const SENSIR_CARD_VERSION = "1.5.0";
+const SENSIR_CARD_VERSION = "1.6.0";
 
 /**
  * Custom Lovelace-Karte für sensir (https://github.com/TBR-BRD/sensir).
@@ -14,11 +14,10 @@ const SENSIR_CARD_VERSION = "1.5.0";
  *   base_url: http://192.168.1.100:8000   # erforderlich
  *   title: SensIR                          # optional
  *   refresh_seconds: 60                    # optional
- *   event_limit: 10                        # optional, Standard 10
  *   household_ids: [1, 2]                  # optional, sonst alle Haushalte
  *
  * Jede Haushalts-Kachel startet zugeklappt (nur Status). Ein kleiner Pfeil
- * klappt die letzten `event_limit` Ereignisse auf/zu, ohne die Seite zu
+ * klappt alle gespeicherten Ereignisse auf/zu, ohne die Seite zu
  * verlassen. Klick auf den Haushaltsnamen öffnet die vollständige sensir-
  * Seite (Zeitfenster bearbeiten, Testnachricht senden, Sensor anlegen, …)
  * in einem neuen Tab.
@@ -48,7 +47,6 @@ class SensirCard extends HTMLElement {
     this._config = {
       title: "SensIR",
       refresh_seconds: 60,
-      event_limit: 10,
       household_ids: null,
       ...config,
     };
@@ -83,7 +81,6 @@ class SensirCard extends HTMLElement {
   async _fetchAndRender() {
     const generation = ++this._renderGeneration;
     const base = this._config.base_url;
-    const limit = Number(this._config.event_limit) || 10;
     try {
       const hhResp = await fetch(`${base}/api/households`);
       if (!hhResp.ok) throw new Error(`Haushalte: HTTP ${hhResp.status}`);
@@ -96,7 +93,7 @@ class SensirCard extends HTMLElement {
         households.map(async (h) => {
           const [statusResp, eventsResp, activityResp] = await Promise.allSettled([
             fetch(`${base}/api/households/${h.id}/status`),
-            fetch(`${base}/api/households/${h.id}/events?limit=${limit}`),
+            fetch(`${base}/api/households/${h.id}/events`),
             fetch(`${base}/api/households/${h.id}/activity/today`),
           ]);
           const status =
