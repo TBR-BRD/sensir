@@ -17,12 +17,14 @@ from app.status_service import weekly_activity_chart
 
 logger = logging.getLogger(__name__)
 
-IMAGE_WIDTH = 1400
-IMAGE_HEIGHT = 520
-GRID_LEFT = 150
+IMAGE_WIDTH = 1520
+IMAGE_HEIGHT = 580
+GRID_LEFT = 205
 CELL_WIDTH = 48
 CELL_HEIGHT = 40
-CELL_GAP = 8
+CELL_GAP = 16
+TV_COLOR = (21, 101, 192)
+TV_BAR_HEIGHT = 8
 GRID_TOP = 112
 
 
@@ -67,6 +69,20 @@ def build_weekly_heatmap_png(chart: dict) -> bytes:
                 outline="#ffffff",
                 width=2,
             )
+        tv_top = top + CELL_HEIGHT + 3
+        for interval in day.get("tv_intervals", []):
+            start_minute = min(interval["start_minute"], 1440)
+            end_minute = min(interval["end_minute"], 1440)
+            left = GRID_LEFT + start_minute * 24 * CELL_WIDTH / 1440
+            right = max(left + 2, GRID_LEFT + end_minute * 24 * CELL_WIDTH / 1440)
+            draw.rounded_rectangle((left, tv_top, right, tv_top + TV_BAR_HEIGHT), radius=3, fill=TV_COLOR)
+        if day.get("tv_minutes"):
+            draw.text(
+                (GRID_LEFT + 24 * CELL_WIDTH + 12, top + 12),
+                f"TV {day['tv_label']}",
+                fill=TV_COLOR,
+                font=small_font,
+            )
 
     legend_y = GRID_TOP + 7 * (CELL_HEIGHT + CELL_GAP) + 4
     draw.text((GRID_LEFT, legend_y), "Weniger", fill="#666a70", font=small_font)
@@ -80,6 +96,14 @@ def build_weekly_heatmap_png(chart: dict) -> bytes:
         x = legend_left + step * legend_width // 40
         draw.line((x, legend_y + 8, x, legend_y + 24), fill=color, width=6)
     draw.text((legend_left + legend_width + 10, legend_y), "Mehr Ereignisse pro Stunde", fill="#666a70", font=small_font)
+    tv_legend_left = legend_left + legend_width + 230
+    draw.rounded_rectangle((tv_legend_left, legend_y + 5, tv_legend_left + 30, legend_y + 5 + TV_BAR_HEIGHT), radius=3, fill=TV_COLOR)
+    draw.text(
+        (tv_legend_left + 40, legend_y),
+        f"TV an (Woche gesamt: {chart.get('tv_label', '0 min')})",
+        fill="#666a70",
+        font=small_font,
+    )
 
     output = io.BytesIO()
     image.save(output, format="PNG", optimize=True)
@@ -94,7 +118,7 @@ def _build_household_heatmap(session: Session, household: Household) -> tuple[di
     caption = (
         f"📊 SensIR Wochen-Heatmap · {household.name}\n"
         f"{chart['week_start']:%d.%m.%Y}–{chart['week_end']:%d.%m.%Y} · "
-        f"{chart['event_count']} Ereignisse"
+        f"{chart['event_count']} Ereignisse · TV {chart['tv_label']}"
     )
     return chart, filename, png, caption
 

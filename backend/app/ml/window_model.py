@@ -26,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.ingest.normalize import NON_ACTIVITY_KINDS
 from app.models import Household, SensorEvent, Sensor
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,11 @@ def _event_minutes_of_day(session: Session, household_id: int) -> tuple[np.ndarr
         session.execute(
             select(SensorEvent.received_at)
             .join(Sensor, Sensor.id == SensorEvent.sensor_id)
-            .where(Sensor.household_id == household_id, SensorEvent.safety.is_(False))
+            .where(
+                Sensor.household_id == household_id,
+                SensorEvent.safety.is_(False),
+                SensorEvent.kind.notin_(NON_ACTIVITY_KINDS),
+            )
         )
         .scalars()
         .all()

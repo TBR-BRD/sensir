@@ -433,9 +433,15 @@ beim Wechsel über/unter `on_threshold_w` erzeugt, nicht bei jedem
 Polling-Zyklus mit gleichbleibendem Wert (`_plug_edges()`, Zustand pro
 Sensor-Key im Prozess-Speicher der jeweiligen Source-Instanz gehalten).
 
-`ACTIVITY_KINDS` (alles außer `smoke`/`gas`) zählt für Zeitfenster- und
-ML-Auswertung als "Person war aktiv". `SAFETY_KINDS = {smoke, gas}` wird davon
-ausgeschlossen und stattdessen sofort alarmiert.
+`ACTIVITY_KINDS` zählt für Zeitfenster- und ML-Auswertung als "Person war
+aktiv". **Nicht** dazu gehören `NON_ACTIVITY_KINDS = (appliance_on,
+appliance_off)`: Ein eingeschalteter TV am Zwischenstecker ist kein
+Lebenszeichen, die Person kann bewusstlos davor liegen. Diese Ereignisse
+zählen weder für Beobachtungsfenster (`_count_events`, auch nicht bei einem auf
+den Stecker gescopten Fenster) noch für das ML-Training, noch für „Letzte
+Aktivität“ und „Ereignisse seit Mitternacht“; sie werden nur als TV-Zeiten
+angezeigt (5.5). `SAFETY_KINDS = {smoke, gas}` wird ebenfalls ausgeschlossen
+und stattdessen sofort alarmiert.
 
 ## 5. Auswertung: Zeitfenster, ML, Alerting
 
@@ -553,7 +559,11 @@ alle `SensorEvent`s der letzten 7 Tage als CSV und schickt sie per Telegram
 - **Dateiname**: `sensir_<haushalt-slug>_<von>_<bis>.csv`.
 - **Zeitplan**: `WEEKLY_EXPORT_ENABLED` (Standard `true`),
   `WEEKLY_EXPORT_DAY_OF_WEEK` (APScheduler-Cron-Format, Standard `sun`),
-  `WEEKLY_EXPORT_HOUR_UTC` (Standard `5`).
+  `WEEKLY_EXPORT_TIME` (Standard `23:50`) in `WEEKLY_EXPORT_TIMEZONE`
+  (Standard `Europe/Berlin`, Sommer-/Winterzeit wird berücksichtigt). Derselbe
+  Job verschickt danach auch die Wochen-Heatmaps (5.6); ein Fehler beim einen
+  Versand verhindert den anderen nicht. Das frühere `WEEKLY_EXPORT_HOUR_UTC`
+  wird nicht mehr ausgewertet.
 - **Sofort auslösen** (zum Testen oder außerhalb des Wochenrhythmus):
   `POST /api/households/{id}/export?days=7`.
 - Jeder Versand wird in `alert_log` protokolliert (Erfolg/Misserfolg pro
@@ -568,19 +578,40 @@ Darunter folgt die Wochen-Heatmap: Montag bis Sonntag als Zeilen, die Stunden
 00 bis 23 als Spalten; dunklere Felder stehen für mehr Ereignisse in der
 Stunde. Die aktuelle Kalenderwoche beginnt am Montag, noch kommende Tage
 bleiben zunächst leer. Beide Grafiken verwenden die Zeitzone des Haushalts.
-Sicherheitsereignisse sowie `appliance_on`/`appliance_off` sind ausgeschlossen.
+Sicherheitsereignisse sowie `appliance_on`/`appliance_off` sind bei Punkten,
+Stundenbalken und Heatmap-Feldern ausgeschlossen.
+
+**TV-Zeiten:** Die Zwischenstecker melden `appliance_on`/`appliance_off`; an
+ihnen hängt der TV des Haushalts. `tv_intervals()` in `app/status_service.py`
+bildet daraus Einschaltzeiträume: on bis zum nächsten off; war der TV bei
+Tagesbeginn schon an, beginnt der Zeitraum um 00:00, läuft er noch, endet er
+„jetzt“. Doppelte on-/off-Meldungen werden ignoriert. Die Tagesgrafik zeigt
+die Zeiträume als blaue waagerechte Balken in einer eigenen Zeile „TV“, die
+Wochen-Heatmap als blauen Balken unter jeder Tageszeile plus die TV-Summe je
+Tag rechts daneben. Der Statusblock zeigt „TV heute: 2 h 15 min
+(2× eingeschaltet)“ bzw. „· läuft gerade“. Für die Alarm-Logik zählen
+TV-Ereignisse nicht (siehe 4.4, `NON_ACTIVITY_KINDS`).
+
+Die Ereignistabelle unten auf der Seite zeigt nur die Ereignisse des
+aktuellen Tages (ab Mitternacht in der Zeitzone des Haushalts).
+
 Die Detailseite lädt alle 30 Minuten neu, sodass beide Grafiken und die
 übrigen Daten gemeinsam aktualisiert werden.
 
 ### 5.6 Wochen-Heatmap per Telegram (`app/weekly_heatmap.py`)
 
-Der Button **„Heatmap an Telegram senden“** auf der Haushaltsübersicht erzeugt
+Automatisch jeden Sonntag um 23:50 (Europe/Berlin) zusammen mit dem
+CSV-Export (5.4, `WEEKLY_EXPORT_*`). Zusätzlich erzeugt der Button
+**„Heatmap an Telegram senden“** auf der Haushaltsübersicht
 für jede aktive Familie ein PNG der aktuellen Montag-bis-Sonntag-Woche und
 sendet es an alle aktiven Kontakte dieses Haushalts mit Telegram-Chat-ID.
 Eine Heatmap wird pro Familie erzeugt und je Kontakt zugestellt; Haushalte ohne
 solchen Kontakt werden übersprungen. Der Versand wird je Kontakt im
 `alert_log` festgehalten. PNG-Erzeugung erfolgt mit Pillow (`Pillow==13.0.0`);
 `sendPhoto` lädt das Bild als `image/png` per multipart/form-data hoch.
+Das Bild enthält dieselben TV-Balken und TV-Summen je Tag wie die
+Wochenübersicht der Detailseite, die Legende und die Bildunterschrift nennen
+die TV-Zeit der ganzen Woche.
 
 Im Telegram-Chat zeigt `/start` berechtigten Kontakten eine permanente
 Tastaturtaste **Heatmap**; das Senden von `Heatmap` oder `/heatmap` startet
@@ -603,7 +634,7 @@ dieser Chat in jeder aktiven Familie als aktiver Kontakt eingetragen sein.
 | `/api/households/{id}/windows` | GET/POST | Beobachtungsfenster; POST akzeptiert optional `sensor_id` (Fenster nur für diesen Sensor, siehe 5.1) |
 | `/api/households/{id}/windows/{id}` | PATCH/DELETE | Fenster ändern (setzt `source=manual`) / löschen |
 | `/api/households/{id}/status` | GET | aktueller Status (letztes Ereignis, Tagesereignisse, aktives Fenster, letzter Check, `household_active`) |
-| `/api/households/{id}/events` | GET | alle gespeicherten Sensorereignisse, neueste zuerst; optional `?limit=` zum Begrenzen; Zeit auf Haushalts-Zeitzone umgerechnet |
+| `/api/households/{id}/events` | GET | alle gespeicherten Sensorereignisse, neueste zuerst; `?today=true` nur seit Mitternacht (Haushalts-Zeitzone); optional `?limit=` zum Begrenzen; Zeit auf Haushalts-Zeitzone umgerechnet |
 | `/api/households/{id}/export` | POST | löst sofort einen CSV-Datenexport aus (`?days=7`), statt auf den wöchentlichen Scheduler-Job zu warten (5.4) |
 
 Dashboard (kein API, HTML): `/` (Ampel-Übersicht, pausierte Haushalte gedimmt),
@@ -657,7 +688,8 @@ ML_TRAIN_HOUR_UTC=3
 
 WEEKLY_EXPORT_ENABLED=true
 WEEKLY_EXPORT_DAY_OF_WEEK=sun
-WEEKLY_EXPORT_HOUR_UTC=5
+WEEKLY_EXPORT_TIME=23:50
+WEEKLY_EXPORT_TIMEZONE=Europe/Berlin
 ```
 
 ## 8. Deployment
@@ -792,10 +824,12 @@ ab (kein eigener Home-Assistant-Custom-Component/Sensor nötig), pollt alle
 `refresh_seconds` (Standard 60) neu. Jede Haushalts-Kachel zeigt die Zahl der
 heutigen Nicht-Sicherheitsereignisse (ab Mitternacht in der Zeitzone des
 Haushalts) unter dem Status und darunter eine Tagesgrafik mit Ereignispunkten
-und Stundenbalken (`GET /api/households/{id}/activity/today`). Die Haushalte
-stehen untereinander. Jede Kachel startet mit zugeklappten Ereignissen;
-ein kleiner Pfeil klappt die vollständige Ereignisliste auf/zu (`GET
-/api/households/{id}/events`), ohne HA zu verlassen. Klick auf den
+und Stundenbalken (`GET /api/households/{id}/activity/today`), dazu die
+TV-Zeile mit blauen Einschaltbalken und „TV heute: …“ unter dem Status (Felder
+`tv_intervals`, `tv_label`, `tv_on_count`, `tv_is_on` derselben Antwort). Die
+Haushalte stehen untereinander. Jede Kachel startet mit zugeklappten
+Ereignissen; ein kleiner Pfeil klappt die Ereignisse des heutigen Tages auf/zu
+(`GET /api/households/{id}/events?today=true`), ohne HA zu verlassen. Klick auf den
 Haushaltsnamen öffnet die vollständige sensir-Seite (Zeitfenster
 bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
 
@@ -811,7 +845,7 @@ bearbeiten, Testnachricht senden, Sensor anlegen, …) in einem neuen Tab.
    `ssh hassio@<ha-host> 'sudo tee /config/www/sensir-card/sensir-card.js' < www/sensir-card.js`).
 3. Als Lovelace-Ressource eintragen: **Einstellungen → Dashboards → oben
    rechts (⋮) → Ressourcen → Ressource hinzufügen** —
-   URL `/local/sensir-card/sensir-card.js?v=7`, Typ „JavaScript-Modul“.
+   URL `/local/sensir-card/sensir-card.js?v=8`, Typ „JavaScript-Modul“.
    (Cache-Busting: bei jedem Karten-Update die `?v=`-Zahl hochzählen.)
 4. Karte zu einem Dashboard hinzufügen: **Dashboard bearbeiten → Karte
    hinzufügen → „SensIR“** (oder manuell per YAML, siehe unten).

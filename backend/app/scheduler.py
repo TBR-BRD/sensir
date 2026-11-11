@@ -10,6 +10,7 @@ from app.config import settings
 from app.db import session_scope
 from app.export import export_and_send_all_households
 from app.ml.window_model import train_all_household_models
+from app.weekly_heatmap import send_weekly_heatmaps
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,29 @@ def _train_models_job() -> None:
 
 
 def _weekly_export_job() -> None:
-    with session_scope() as session:
-        export_and_send_all_households(session)
+    # Getrennt abgesichert: schlägt der CSV-Versand fehl, kommen die
+    # Heatmaps trotzdem (und umgekehrt).
+    try:
+        with session_scope() as session:
+            export_and_send_all_households(session)
+    except Exception:
+        logger.exception("weekly CSV export failed")
+    try:
+        with session_scope() as session:
+            result = send_weekly_heatmaps(session)
+        logger.info("weekly heatmaps: %s", result)
+    except Exception:
+        logger.exception("weekly heatmap delivery failed")
+
+
+def _weekly_export_trigger() -> CronTrigger:
+    hour, minute = (int(part) for part in settings.weekly_export_time.split(":"))
+    return CronTrigger(
+        day_of_week=settings.weekly_export_day_of_week,
+        hour=hour,
+        minute=minute,
+        timezone=settings.weekly_export_timezone,
+    )
 
 
 def start() -> None:
@@ -52,21 +74,17 @@ def start() -> None:
     if settings.weekly_export_enabled:
         scheduler.add_job(
             _weekly_export_job,
-            trigger=CronTrigger(
-                day_of_week=settings.weekly_export_day_of_week,
-                hour=settings.weekly_export_hour_utc,
-                minute=0,
-            ),
+            trigger=_weekly_export_trigger(),
             id="weekly_export",
             replace_existing=True,
         )
     scheduler.start()
     logger.info(
         "scheduler started: activity check every %sm, model training daily at %s:00 UTC, "
-        "weekly export %s",
+        "weekly CSV + heatmap delivery %s",
         settings.check_interval_minutes,
         settings.ml_train_hour_utc,
-        f"{settings.weekly_export_day_of_week} {settings.weekly_export_hour_utc}:00 UTC"
+        f"{settings.weekly_export_day_of_week} {settings.weekly_export_time} {settings.weekly_export_timezone}"
         if settings.weekly_export_enabled else "disabled",
     )
 

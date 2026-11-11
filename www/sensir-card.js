@@ -1,4 +1,4 @@
-const SENSIR_CARD_VERSION = "1.6.0";
+const SENSIR_CARD_VERSION = "1.7.0";
 
 /**
  * Custom Lovelace-Karte für sensir (https://github.com/TBR-BRD/sensir).
@@ -17,7 +17,7 @@ const SENSIR_CARD_VERSION = "1.6.0";
  *   household_ids: [1, 2]                  # optional, sonst alle Haushalte
  *
  * Jede Haushalts-Kachel startet zugeklappt (nur Status). Ein kleiner Pfeil
- * klappt alle gespeicherten Ereignisse auf/zu, ohne die Seite zu
+ * klappt alle Ereignisse des heutigen Tages auf/zu, ohne die Seite zu
  * verlassen. Klick auf den Haushaltsnamen öffnet die vollständige sensir-
  * Seite (Zeitfenster bearbeiten, Testnachricht senden, Sensor anlegen, …)
  * in einem neuen Tab.
@@ -93,7 +93,7 @@ class SensirCard extends HTMLElement {
         households.map(async (h) => {
           const [statusResp, eventsResp, activityResp] = await Promise.allSettled([
             fetch(`${base}/api/households/${h.id}/status`),
-            fetch(`${base}/api/households/${h.id}/events`),
+            fetch(`${base}/api/households/${h.id}/events?today=true`),
             fetch(`${base}/api/households/${h.id}/activity/today`),
           ]);
           const status =
@@ -154,7 +154,7 @@ class SensirCard extends HTMLElement {
                    <span class="dim">(${this._esc(e.kind)})</span></li>`
               )
               .join("")
-          : '<li class="dim">Keine Ereignisse</li>';
+          : '<li class="dim">Heute noch keine Ereignisse</li>';
         const todayChartHtml = this._dailyChart(s.today_activity);
 
         return `
@@ -165,6 +165,7 @@ class SensirCard extends HTMLElement {
                 <div class="hh-status">${meta.label}</div>
                 <div class="hh-meta">${s.error ? "" : "Heute: " + (Number(s.events_since_midnight) || 0) + " Ereignisse"}</div>
                 <div class="hh-meta">${s.error ? "" : "Letzte Aktivität: " + this._esc(lastEvent)}</div>
+                ${s.error ? "" : this._tvMeta(s.today_activity)}
               </a>
               <button class="hh-toggle" data-toggle="${s.household_id}" aria-label="Ereignisse ein-/ausblenden">
                 ${expanded ? "▾" : "▸"}
@@ -198,6 +199,14 @@ class SensirCard extends HTMLElement {
         this._render(this._lastStatuses || []);
       });
     });
+  }
+
+  _tvMeta(data) {
+    if (!data || data.tv_label == null) return "";
+    const count = Number(data.tv_on_count) || 0;
+    const times = count ? ` (${count}× eingeschaltet)` : "";
+    const running = data.tv_is_on ? " · läuft gerade" : "";
+    return `<div class="hh-meta">TV heute: ${this._esc(data.tv_label)}${times}${running}</div>`;
   }
 
   _dailyChart(data) {
@@ -245,6 +254,18 @@ class SensirCard extends HTMLElement {
         return `<rect class="chart-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${height.toFixed(1)}" rx="2"><title>${String(hour).padStart(2, "0")}:00–${String(hour + 1).padStart(2, "0")}:00: ${count} Ereignisse</title></rect>`;
       })
       .join("");
+    const tvY = 58;
+    const tvBars = (Array.isArray(data.tv_intervals) ? data.tv_intervals : [])
+      .map((tv) => {
+        const start = Math.max(0, Math.min(1440, Number(tv.start_minute) || 0));
+        const end = Math.max(start, Math.min(1440, Number(tv.end_minute) || 0));
+        const x = plotLeft + (start * plotWidth) / 1440;
+        const width = Math.max(2, ((end - start) * plotWidth) / 1440);
+        const until = tv.ongoing ? "jetzt" : tv.end;
+        const title = `TV an ${this._esc(tv.start)}–${this._esc(until)} (${Math.round(Number(tv.minutes) || 0)} min)`;
+        return `<rect class="chart-tv" x="${x.toFixed(1)}" y="${tvY}" width="${width.toFixed(1)}" height="10" rx="3"><title>${title}</title></rect>`;
+      })
+      .join("");
     const date = data.date ? new Date(`${data.date}T12:00:00`).toLocaleDateString("de-DE") : "heute";
 
     return `
@@ -255,6 +276,9 @@ class SensirCard extends HTMLElement {
           <text class="chart-section-label" x="${plotLeft}" y="16">Ereignisse im Tagesverlauf</text>
           <line class="chart-axis" x1="${plotLeft}" y1="${timelineY}" x2="${plotLeft + plotWidth}" y2="${timelineY}" />
           ${events}
+          <text class="chart-label" x="${plotLeft - 7}" y="${tvY + 9}" text-anchor="end">TV</text>
+          <rect class="chart-tv-track" x="${plotLeft}" y="${tvY}" width="${plotWidth}" height="10" rx="3" />
+          ${tvBars}
           <text class="chart-section-label" x="${plotLeft}" y="91">Ereignisse pro Stunde</text>
           ${bars}
           <line class="chart-axis" x1="${plotLeft}" y1="${barsBottom}" x2="${plotLeft + plotWidth}" y2="${barsBottom}" />
@@ -314,6 +338,8 @@ class SensirCard extends HTMLElement {
       .chart-section-label { fill: var(--primary-text-color, #333); font-size: 11px; font-weight: 600; }
       .chart-event { fill: #e20074; opacity: 0.85; }
       .chart-bar { fill: #e20074; opacity: 0.9; }
+      .chart-tv { fill: #1565c0; opacity: 0.85; }
+      .chart-tv-track { fill: var(--secondary-background-color, #f1f1f1); stroke: var(--divider-color, #e0e0e0); stroke-width: 1; }
       .hh-toggle {
         flex-shrink: 0;
         background: none;
@@ -346,7 +372,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "sensir-card",
   name: "SensIR",
-  description: "Einspaltige SensIR-Haushaltsübersicht mit Tagesgrafik und auf-/zuklappbaren letzten Ereignissen",
+  description: "Einspaltige SensIR-Haushaltsübersicht mit Tagesgrafik, TV-Zeiten und auf-/zuklappbaren Ereignissen des Tages",
 });
 
 console.info(`%c SENSIR-CARD %c v${SENSIR_CARD_VERSION} `, "color: #fff; background: #e20074; font-weight: 700;", "color: #e20074; background: #fff; font-weight: 700;");

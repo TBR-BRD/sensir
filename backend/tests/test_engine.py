@@ -151,3 +151,39 @@ def test_alert_only_when_all_windows_negative(session, monkeypatch):
     # zweiter Lauf (z. B. nächster Scheduler-Tick) darf nicht nochmal alarmieren
     alert_engine._check_household(session, h, now_local=now_local)
     assert session.query(AlertLog).count() == 1
+
+
+def test_tv_plug_events_do_not_prevent_an_alarm(session, monkeypatch):
+    """Ein eingeschalteter TV ist kein Lebenszeichen: Die Person kann
+    bewusstlos davor liegen. appliance_on/-off zählen nicht für ein Fenster,
+    auch nicht für eines, das auf den Zwischenstecker gescoped ist."""
+    h = _household(session)
+    plug = _sensor(session, h.id, "tv-plug")
+    from app.models import AlertLog, Contact
+    session.add(Contact(household_id=h.id, name="Test", telegram_chat_id="123", priority=0))
+    session.commit()
+
+    sent = []
+    monkeypatch.setattr(
+        alert_engine, "send_telegram_message",
+        lambda chat_id, text: sent.append((chat_id, text)) or True,
+    )
+
+    _event(session, plug.id, dt.datetime(2026, 9, 30, 9, 0, tzinfo=TZ), kind="appliance_on")
+    _event(session, plug.id, dt.datetime(2026, 9, 30, 12, 0, tzinfo=TZ), kind="appliance_off")
+    _event(session, plug.id, dt.datetime(2026, 9, 30, 13, 0, tzinfo=TZ), kind="appliance_on")
+    session.add(ObservationWindow(
+        household_id=h.id, start_time=dt.time(8, 0), end_time=dt.time(22, 0), min_actions=1,
+    ))
+    session.commit()
+
+    assert alert_engine._count_events(
+        session, h.id,
+        dt.datetime(2026, 9, 30, 8, 0, tzinfo=TZ), dt.datetime(2026, 9, 30, 22, 0, tzinfo=TZ),
+    ) == 0
+
+    alert_engine._check_household(session, h, now_local=dt.datetime(2026, 9, 30, 23, 0, tzinfo=TZ))
+
+    assert {c.status for c in session.query(ActivityCheck).all()} == {CheckStatus.negative}
+    assert len(sent) == 1
+    assert session.query(AlertLog).count() == 1

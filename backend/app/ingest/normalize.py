@@ -10,9 +10,12 @@ from dataclasses import dataclass
 
 # kinds, die als "Person aktiv" gelten (für Fenster-/Inaktivitäts-Logik)
 ACTIVITY_KINDS = {
-    "ir", "motion", "door", "window", "button", "light",
-    "appliance_on", "appliance_off", "presence",
+    "ir", "motion", "door", "window", "button", "light", "presence",
 }
+# Zwischenstecker-Ereignisse (TV) sind KEIN Lebenszeichen: Ein eingeschalteter
+# TV darf keinen Alarm verhindern - die Person kann bewusstlos davor liegen.
+# Sie werden nur für die TV-Zeiten in Grafiken/Statistik ausgewertet.
+NON_ACTIVITY_KINDS = ("appliance_on", "appliance_off")
 SAFETY_KINDS = {"smoke", "gas"}
 
 

@@ -55,9 +55,12 @@ class Settings(BaseSettings):
 
     # -- Wöchentlicher CSV-Rohdaten-Export für eigenes ML-Training ------
     # (nicht zu verwechseln mit dem eingebauten KernelDensity-Modell oben)
+    # Sendet CSV-Tabellen UND Wochen-Heatmaps per Telegram. Sonntag 23:50
+    # Ortszeit, damit die Woche Montag-Sonntag fast vollständig enthalten ist.
     weekly_export_enabled: bool = True
     weekly_export_day_of_week: str = "sun"  # APScheduler-Cron: mon..sun
-    weekly_export_hour_utc: int = 5
+    weekly_export_time: str = "23:50"  # HH:MM in weekly_export_timezone
+    weekly_export_timezone: str = "Europe/Berlin"
 
     # Komma-getrennte Liste erlaubter Browser-Origins für CORS, z. B.
     # http://192.168.1.50:8123 für einen Lovelace-Custom-Card-Zugriff aus

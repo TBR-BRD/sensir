@@ -19,6 +19,7 @@
   {% elif status.status and status.status.value == 'negative' %}Bitte melde dich – keine Aktivität im erwarteten Zeitfenster!
   {% else %}Noch keine Auswertung für heute{% endif %}
   <div class="muted">Ereignisse seit Mitternacht: {{ status.events_since_midnight }}</div>
+  <div class="muted">TV heute: {{ today_activity_chart.tv_label }}{% if today_activity_chart.tv_on_count %} ({{ today_activity_chart.tv_on_count }}× eingeschaltet){% endif %}{% if today_activity_chart.tv_is_on %} · läuft gerade{% endif %}</div>
 </section>
 
 <section class="daily-activity">
@@ -50,7 +51,17 @@
         <title>{{ event.time }} · {{ event.sensor_name }}</title>
       </circle>
       {% endfor %}
-      <text class="chart-section-label" x="{{ plot_left }}" y="112">Ereignisse pro Stunde</text>
+      {% set tv_y = 82 %}
+      <text class="chart-label" x="{{ plot_left - 8 }}" y="{{ tv_y + 9 }}" text-anchor="end">TV</text>
+      <rect class="chart-tv-track" x="{{ plot_left }}" y="{{ tv_y }}" width="{{ plot_width }}" height="12" rx="3" />
+      {% for tv in today_activity_chart.tv_intervals %}
+      {% set x1 = plot_left + ([tv.start_minute, 1440]|min) * plot_width / 1440 %}
+      {% set x2 = plot_left + ([tv.end_minute, 1440]|min) * plot_width / 1440 %}
+      <rect class="chart-tv" x="{{ x1 }}" y="{{ tv_y }}" width="{{ [x2 - x1, 2]|max }}" height="12" rx="3">
+        <title>TV an {{ tv.start }}–{% if tv.ongoing %}jetzt{% else %}{{ tv.end }}{% endif %} ({{ tv.minutes|round|int }} min) · {{ tv.sensor_name }}</title>
+      </rect>
+      {% endfor %}
+      <text class="chart-section-label" x="{{ plot_left }}" y="118">Ereignisse pro Stunde</text>
       {% for division in range(0, 4) %}
       {% set y = bars_bottom - division * bars_height / 3 %}
       {% set value = (max_count * division / 3)|round|int %}
@@ -69,7 +80,7 @@
       <text class="chart-label" x="{{ plot_left + plot_width / 2 }}" y="{{ bars_bottom + 52 }}" text-anchor="middle">Uhrzeit</text>
     </svg>
   </div>
-  <p class="muted">Jeder Punkt entspricht einem Ereignis. Sicherheits- und Appliance-Ereignisse sind ausgeschlossen. Die Detailseite aktualisiert sich alle 30 Minuten.</p>
+  <p class="muted">Jeder Punkt entspricht einem Ereignis; Sicherheits- und Zwischenstecker-Ereignisse sind dabei ausgeschlossen. Der blaue Balken zeigt, wann der TV am Zwischenstecker eingeschaltet war. Die Detailseite aktualisiert sich alle 30 Minuten.</p>
 </section>
 
 <section class="weekly-activity">
@@ -83,10 +94,10 @@
   {% set grid_left = 155 %}
   {% set cell_width = 34 %}
   {% set row_height = 27 %}
-  {% set row_gap = 4 %}
+  {% set row_gap = 14 %}
   {% set week_max = weekly_activity_chart.max_hourly_count if weekly_activity_chart.max_hourly_count > 0 else 1 %}
   <div class="weekly-chart-scroll">
-    <svg class="weekly-chart" viewBox="0 0 1035 265" role="img" aria-label="Ereignisse je Stunde für Montag bis Sonntag">
+    <svg class="weekly-chart" viewBox="0 0 1100 335" role="img" aria-label="Ereignisse je Stunde für Montag bis Sonntag">
       {% for hour in range(0, 24, 2) %}
       {% set x = grid_left + hour * cell_width + cell_width / 2 %}
       <text class="chart-label" x="{{ x }}" y="25" text-anchor="middle">{{ '%02d:00'|format(hour) }}</text>
@@ -103,12 +114,21 @@
         <title>{{ day.label }} {{ '%02d:00'|format(loop.index0) }}–{{ '%02d:00'|format(loop.index0 + 1) }}: {{ count }} Ereignisse</title>
       </rect>
       {% endfor %}
+      {% set tv_y = y + row_height + 3 %}
+      {% for tv in day.tv_intervals %}
+      {% set x1 = grid_left + ([tv.start_minute, 1440]|min) * 24 * cell_width / 1440 %}
+      {% set x2 = grid_left + ([tv.end_minute, 1440]|min) * 24 * cell_width / 1440 %}
+      <rect class="chart-tv" x="{{ x1 }}" y="{{ tv_y }}" width="{{ [x2 - x1, 2]|max }}" height="6" rx="2">
+        <title>{{ day.label }}: TV an {{ tv.start }}–{% if tv.ongoing %}jetzt{% else %}{{ tv.end }}{% endif %} ({{ tv.minutes|round|int }} min)</title>
+      </rect>
       {% endfor %}
-      <text class="chart-label" x="{{ grid_left + 12 * cell_width }}" y="258" text-anchor="middle">Uhrzeit</text>
+      <text class="chart-label" x="{{ grid_left + 24 * cell_width + 10 }}" y="{{ y + row_height / 2 + 4 }}">{% if day.tv_minutes %}TV {{ day.tv_label }}{% endif %}</text>
+      {% endfor %}
+      <text class="chart-label" x="{{ grid_left + 12 * cell_width }}" y="328" text-anchor="middle">Uhrzeit</text>
     </svg>
   </div>
-  <div class="weekly-chart-legend"><span>Weniger</span><span class="weekly-legend-gradient"></span><span>Mehr Ereignisse pro Stunde</span></div>
-  <p class="muted">Die Wochenansicht läuft von Montag bis Sonntag. Sicherheits- und Appliance-Ereignisse sind ausgeschlossen.</p>
+  <div class="weekly-chart-legend"><span>Weniger</span><span class="weekly-legend-gradient"></span><span>Mehr Ereignisse pro Stunde</span><span class="weekly-legend-tv"></span><span>TV an</span></div>
+  <p class="muted">Die Wochenansicht läuft von Montag bis Sonntag; TV-Zeit diese Woche: {{ weekly_activity_chart.tv_label }}. Sicherheits- und Zwischenstecker-Ereignisse zählen nicht zu den Ereignissen pro Stunde.</p>
 </section>
 
 <section>
@@ -209,7 +229,7 @@
 </section>
 
 <section>
-  <h2>Alle Ereignisse</h2>
+  <h2>Ereignisse heute</h2>
   <p class="muted">Zeiten in Lokalzeit ({{ household.timezone }}).</p>
   <table>
     <tr><th>Zeit</th><th>Sensor</th><th>Art</th><th>Daten</th></tr>
@@ -224,6 +244,8 @@
         {%- else -%}–{%- endif -%}
       </td>
     </tr>
+    {% else %}
+    <tr><td colspan="4" class="muted">Heute noch keine Ereignisse.</td></tr>
     {% endfor %}
   </table>
 </section>

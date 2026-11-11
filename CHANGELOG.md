@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### TV-Zeiten und Ereignisse des Tages
+
+Aus den `appliance_on`/`appliance_off`-Meldungen der Zwischenstecker (TV)
+werden Einschaltzeiträume berechnet. Tagesgrafik (Detailseite und
+Home-Assistant-Kachel), Wochenübersicht und das Telegram-Wochenbild zeigen sie
+als blaue waagerechte Balken; dazu kommen „TV heute“ im Status, TV-Summen je
+Tag und die TV-Zeit der Woche. Die Ereignisliste auf der Detailseite und in der
+Kachel zeigt nur noch den aktuellen Tag; die API bietet dafür `?today=true`.
+Kachel-Version 1.7.0 (Ressource `?v=8`).
+
+### TV-Stecker zählt nicht mehr als Lebenszeichen
+
+`appliance_on`/`appliance_off` (`NON_ACTIVITY_KINDS`) zählen nicht mehr für
+Beobachtungsfenster, ML-Training, „Letzte Aktivität“ und „Ereignisse seit
+Mitternacht“. Bisher konnte ein eingeschalteter TV einen Alarm verhindern,
+obwohl die Person bewusstlos davor liegen kann.
+
+### Wöchentlicher Telegram-Versand Sonntag 23:50
+
+CSV-Export und Wochen-Heatmaps gehen automatisch jeden Sonntag um 23:50
+Europe/Berlin raus (bisher nur CSV, Sonntag 05:00 UTC; Heatmaps nur manuell).
+Neue Einstellungen `WEEKLY_EXPORT_TIME` und `WEEKLY_EXPORT_TIMEZONE` ersetzen
+`WEEKLY_EXPORT_HOUR_UTC`.
+
 ### Vollständige Ereignisliste pro Haushalt
 
 Die SensIR-Haushaltsdetailseite und die aufklappbaren Home-Assistant-Kacheln

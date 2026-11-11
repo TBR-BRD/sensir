@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session
 from app.alerting.telegram import send_telegram_message
 from app.config import settings
 from app.db import session_scope
+from app.ingest.normalize import NON_ACTIVITY_KINDS
 from app.ml import window_model
 from app.models import (
     ActivityCheck,
@@ -198,6 +199,7 @@ def _count_events(
             SensorEvent.received_at >= start,
             SensorEvent.received_at < end,
             SensorEvent.safety.is_(False),
+            SensorEvent.kind.notin_(NON_ACTIVITY_KINDS),
         )
     ).scalar_one()
 

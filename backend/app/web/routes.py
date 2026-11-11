@@ -11,7 +11,7 @@ from app.alerting.telegram import send_telegram_message
 from app.config import settings
 from app.db import get_db
 from app.models import AlertLog, Contact, Household, ObservationWindow, Sensor, SensorKind, WindowSource
-from app.status_service import compute_status, today_activity_chart, weekly_activity_chart
+from app.status_service import compute_status, local_midnight, today_activity_chart, weekly_activity_chart
 from app.status_service import recent_events as recent_events_service
 from app.weekly_heatmap import send_weekly_heatmaps
 
@@ -100,7 +100,7 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
         select(Contact).where(Contact.household_id == household_id).order_by(Contact.priority)
     ).scalars().all()
     windows = db.execute(select(ObservationWindow).where(ObservationWindow.household_id == household_id)).scalars().all()
-    events = recent_events_service(db, household)
+    events = recent_events_service(db, household, since=local_midnight(household))
     sensor_names = {s.id: s.name for s in all_household_sensors}
     return templates.TemplateResponse(
         "household.html",
