@@ -88,7 +88,15 @@ def trigger_weekly_heatmaps(db: Session = Depends(get_db)):
 
 
 @router.get("/households/{household_id}")
-def household_detail(request: Request, household_id: int, db: Session = Depends(get_db)):
+def household_detail(
+    request: Request,
+    household_id: int,
+    test_requested: int = 0,
+    test_sent: int = 0,
+    test_failed: int = 0,
+    test_not_configured: int = 0,
+    db: Session = Depends(get_db),
+):
     household = db.get(Household, household_id)
     if household is None:
         raise HTTPException(404, "household not found")
@@ -117,6 +125,10 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
             "contacts": contacts,
             "windows": windows,
             "recent_events": events,
+            "test_requested": bool(test_requested),
+            "test_sent": test_sent,
+            "test_failed": test_failed,
+            "test_not_configured": bool(test_not_configured),
         },
     )
 
@@ -143,29 +155,72 @@ def add_contact(
     return RedirectResponse(f"/households/{household_id}", status_code=303)
 
 
-def _send_contact_test_message(db: Session, household_id: int, contact_id: int) -> None:
-    contact = db.execute(
-        select(Contact).where(Contact.id == contact_id, Contact.household_id == household_id)
-    ).scalar_one_or_none()
-    household = db.get(Household, household_id)
-    if contact is not None and contact.telegram_chat_id and household is not None:
-        message = f"✅ Testnachricht von SensIR für {household.name}."
+def _test_message_text(household: Household) -> str:
+    return (
+        f"✅ Testnachricht von SensIR für {household.name}. "
+        "Wenn diese Nachricht ankommt, erreichen dich auch die Alarme."
+    )
+
+
+def _send_test_messages(db: Session, household: Household, contacts: list[Contact]) -> dict[str, int]:
+    """Testnachricht an die angegebenen Kontakte schicken und im Alarm-Log
+    festhalten. Kontakte ohne Telegram-Chat werden übersprungen."""
+    result = {"sent": 0, "failed": 0}
+    message = _test_message_text(household)
+    for contact in contacts:
+        if not contact.telegram_chat_id:
+            continue
         success = send_telegram_message(contact.telegram_chat_id, message)
+        result["sent" if success else "failed"] += 1
         db.add(
             AlertLog(
-                household_id=household_id,
+                household_id=household.id,
                 contact_id=contact.id,
                 message=f"[Testnachricht] {message}",
                 success=success,
             )
         )
-        db.commit()
+    db.commit()
+    return result
+
+
+def _test_redirect(household_id: int, result: dict[str, int]) -> RedirectResponse:
+    return RedirectResponse(
+        f"/households/{household_id}?test_requested=1"
+        f"&test_sent={result['sent']}&test_failed={result['failed']}"
+        f"&test_not_configured={int(not settings.telegram_bot_token)}",
+        status_code=303,
+    )
+
+
+@router.post("/households/{household_id}/test-message")
+def send_household_test_message(household_id: int, db: Session = Depends(get_db)):
+    """Testnachricht an alle aktiven Kontakte mit Telegram - dieselben
+    Empfänger wie bei einem Alarm (siehe alerting/engine.py)."""
+    household = db.get(Household, household_id)
+    if household is None:
+        raise HTTPException(404, "household not found")
+    contacts = db.execute(
+        select(Contact)
+        .where(Contact.household_id == household_id, Contact.is_active.is_(True))
+        .order_by(Contact.priority)
+    ).scalars().all()
+    return _test_redirect(household_id, _send_test_messages(db, household, contacts))
+
+
+def _send_contact_test_message(db: Session, household_id: int, contact_id: int) -> dict[str, int]:
+    contact = db.execute(
+        select(Contact).where(Contact.id == contact_id, Contact.household_id == household_id)
+    ).scalar_one_or_none()
+    household = db.get(Household, household_id)
+    if contact is None or household is None:
+        return {"sent": 0, "failed": 0}
+    return _send_test_messages(db, household, [contact])
 
 
 @router.post("/households/{household_id}/contacts/{contact_id}/test")
 def test_contact_web(household_id: int, contact_id: int, db: Session = Depends(get_db)):
-    _send_contact_test_message(db, household_id, contact_id)
-    return RedirectResponse(f"/households/{household_id}", status_code=303)
+    return _test_redirect(household_id, _send_contact_test_message(db, household_id, contact_id))
 
 
 @router.post("/households/{household_id}/toggle-active")

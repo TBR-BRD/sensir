@@ -8,10 +8,23 @@
 <form method="post" action="/households/{{ household.id }}/toggle-active" style="display:inline">
   <button type="submit">{% if household.is_active %}Überwachung pausieren{% else %}Überwachung fortsetzen{% endif %}</button>
 </form>
+<form method="post" action="/households/{{ household.id }}/test-message" style="display:inline">
+  <button type="submit" title="An alle aktiven Telegram-Kontakte dieser Familie">Testnachricht senden</button>
+</form>
 <form method="post" action="/households/{{ household.id }}/delete" style="display:inline"
       onsubmit="return confirm('{{ household.name }} inkl. aller Sensoren, Ereignisse, Kontakte und Historie unwiderruflich löschen?');">
   <button type="submit" class="button-danger">Haushalt löschen</button>
 </form>
+
+{% if test_requested %}
+<p class="heatmap-notice test-notice">
+  {% if test_not_configured %}Telegram ist nicht konfiguriert. Es wurde keine Testnachricht versendet.
+  {% elif test_sent + test_failed == 0 %}Kein aktiver Kontakt mit Telegram-Chat. Es wurde keine Testnachricht versendet.
+  {% elif test_failed == 0 %}✅ Testnachricht an {{ test_sent }} {{ 'Kontakt' if test_sent == 1 else 'Kontakte' }} gesendet.
+  {% else %}⚠️ Testnachricht: {{ test_sent }} gesendet, {{ test_failed }} fehlgeschlagen. Bitte die Telegram-Chat-ID der Kontakte prüfen.
+  {% endif %}
+</p>
+{% endif %}
 
 <section class="status-banner {% if not household.is_active %}status-paused{% else %}status-{{ status.status.value if status.status else 'unknown' }}{% endif %}">
   {% if not household.is_active %}Haushalt pausiert – keine neuen Sensordaten, keine Auswertung, keine Alarme.

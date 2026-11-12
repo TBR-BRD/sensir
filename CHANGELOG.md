@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Testnachricht für die ganze Familie
+
+Auf der Haushaltsseite schickt „Testnachricht senden“ (neben „Überwachung
+pausieren“) eine Testnachricht an alle aktiven Telegram-Kontakte der Familie,
+also an dieselben Empfänger wie ein Alarm. Danach zeigt die Seite, an wie viele
+Kontakte sie ging und ob etwas fehlgeschlagen ist; das gilt jetzt auch für die
+Testnachricht an einen einzelnen Kontakt. Jede Testnachricht steht im Alarm-Log.
+
 ### Telegram-Button „Alle Daten“
 
 Neben „Heatmap“ gibt es den Button „Alle Daten“ (auch `/daten`): Er schickt je
