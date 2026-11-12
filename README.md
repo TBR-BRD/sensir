@@ -20,7 +20,7 @@ Keine Kamera, kein Mikrofon, kein Abo. Schritt für Schritt:
 | Quelle | Geräte | Weg |
 |---|---|---|
 | `ir_bridge` | Pearl-IR-Empfänger mit Tasmota ("YTF IR Bridge") neben dem Fernseher | MQTT im LAN / über Broker |
-| `tuya` | Tuya-/SmartLife-Geräte (Bewegungsmelder, Tür­kontakte, Rauchmelder, Steckdosen mit Verbrauchsmessung) | Tuya Cloud API + Pulsar-Stream |
+| `tuya` | Tuya-/SmartLife-Geräte (Kameras mit Bewegungserkennung wie LSC Smart Connect, Bewegungsmelder, Tür­kontakte, Rauchmelder, Steckdosen mit Verbrauchsmessung) | Tuya Cloud API + Pulsar-Stream |
 | `shelly` | Shelly-Geräte (**BLU Motion + Plug M Gen3** als Standard, außerdem Plug S, BLU Button, i4, Smoke) | Shelly Cloud API + Cloud-WebSocket |
 
 Alle Quellen schreiben dasselbe kanonische `SensorEvent`. ML, Alerting und
@@ -170,6 +170,24 @@ Bauteilliste:
 - WLAN mit Internetzugang im Haushalt
 - Ein Shelly-Cloud-Konto für alle Haushalte (Cloud-Key aus der Shelly-App)
 - Ein Telegram-Bot (über @BotFather) und Telegram bei den Angehörigen
+
+**Optional für Tuya-/SmartLife-Geräte** (zum Beispiel Kameras mit
+Bewegungsmelder; Einrichtung unter
+[Tuya-/SmartLife-Geräte anbinden](#tuya-smartlife-geräte-anbinden)):
+
+- Tuya-/SmartLife-Geräte, zum Beispiel die günstige
+  [LSC Smart Connect Solar-Kamera von Action](https://www.action.com/de-de/p/3225729/lsc-smart-connect-solar-kamera/).
+  LSC-Smart-Connect-Geräte laufen auf der Tuya-Plattform und lassen sich in
+  der SmartLife-App einbinden.
+- Die SmartLife-App bei der beobachteten Person bzw. im Haushalt
+- Ein kostenloses Entwicklerkonto mit Cloud-Projekt auf
+  [iot.tuya.com](https://iot.tuya.com). Das Trial-Kontingent muss dort
+  regelmäßig verlängert werden; SensIR erinnert im Dashboard daran
+  (`TUYA_TRIAL_EXPIRES` in `.env`).
+- Tipp: Eine Außenkamera als „nur Bestätigung“ eintragen
+  (`config.confirmation_only = true`). Ihre Bewegungen erscheinen dann im
+  Ereignisprotokoll, zählen aber nicht als Lebenszeichen, weil draußen auch
+  Nachbarn, Paketboten oder Tiere sie auslösen.
 
 **Optional für IR-Bridges** (älterer Aufbau, derzeit nicht im Einsatz):
 
