@@ -6,13 +6,22 @@ werden Angehörige per Telegram alarmiert. Ein KI-Modell lernt pro Haushalt den
 normalen Tagesablauf und ersetzt nach und nach die manuell konfigurierten
 Zeitfenster.
 
+![SensIR mit Shelly: Bewegung im Flur, Bewegungsmelder an der Wand, Fernseher am Zwischenstecker, Angehöriger sieht „All good“ in SensIR](docs/sensir-shelly-story.jpg)
+
+**SensIR mit Telegram und Shelly-Hardware für einmalig rund 35 € pro Haushalt:**
+ein Shelly-Bewegungsmelder meldet, dass sich die Person in der Wohnung bewegt,
+ein Shelly-Zwischenstecker zeigt, wann der Fernseher läuft, und die Angehörigen
+bekommen per Telegram Bescheid, wenn das gewohnte Lebenszeichen ausbleibt.
+Keine Kamera, kein Mikrofon, kein Abo. Schritt für Schritt:
+**[HowTo: SensIR mit Shelly-Komponenten](#howto-sensir-mit-shelly-komponenten)**.
+
 **Ein Backend, drei austauschbare Sensor-Quellen:**
 
 | Quelle | Geräte | Weg |
 |---|---|---|
 | `ir_bridge` | Pearl-IR-Empfänger mit Tasmota ("YTF IR Bridge") neben dem Fernseher | MQTT im LAN / über Broker |
 | `tuya` | Tuya-/SmartLife-Geräte (Bewegungsmelder, Tür­kontakte, Rauchmelder, Steckdosen mit Verbrauchsmessung) | Tuya Cloud API + Pulsar-Stream |
-| `shelly` | Shelly-Geräte (Motion, Plug S/PM, i4, Smoke) | Shelly Cloud API + Cloud-WebSocket |
+| `shelly` | Shelly-Geräte (**BLU Motion + Plug M Gen3** als Standard, außerdem Plug S, BLU Button, i4, Smoke) | Shelly Cloud API + Cloud-WebSocket |
 
 Alle Quellen schreiben dasselbe kanonische `SensorEvent`. ML, Alerting und
 Status arbeiten quellenunabhängig — ein Haushalt kann Geräte mehrerer Marken
@@ -20,6 +29,92 @@ gemischt haben.
 
 Hintergrund, Personas, Business Model Canvas etc. siehe die Projekt-Doku
 (nicht Teil dieses Repos).
+
+## HowTo: SensIR mit Shelly-Komponenten
+
+Das ist der Standardaufbau, mit dem SensIR derzeit in den Haushalten läuft.
+
+### 1. Hardware pro Haushalt (einmalig rund 35 €)
+
+| Gerät | Aufgabe in SensIR |
+|---|---|
+| [Shelly BLU Motion ZB](https://www.shelly.com/de/products/shelly-blu-motion-zb) | Bewegungsmelder, batteriebetrieben. Jede Bewegung ist ein Lebenszeichen. |
+| [Shelly Plug M Gen3](https://www.shelly.com/de/products/shelly-plug-m-gen3-white) | Zwischenstecker für den Fernseher. Misst die Leistung und meldet „TV an/aus“. Verbindet außerdem den Bewegungsmelder per Bluetooth mit der Shelly Cloud. |
+
+Im Haushalt braucht es nur WLAN mit Internetzugang. Ein eigener Server, ein Hub
+oder ein Abo beim Hersteller ist dort nicht nötig.
+
+### 2. Geräte im Haushalt einrichten
+
+1. Den Zwischenstecker in die Steckdose des Fernsehers stecken und den
+   Fernseher daran anschließen.
+2. Den Zwischenstecker in der App **Shelly Smart Control** ins WLAN des
+   Haushalts bringen. Alle Haushalte nutzen dasselbe Shelly-Konto, damit
+   SensIR mit einem einzigen Cloud-Schlüssel alle Geräte sieht.
+3. Den Bewegungsmelder in derselben App hinzufügen und ihn dem Zwischenstecker
+   als Bluetooth-Gateway zuordnen.
+4. Den Bewegungsmelder dort anbringen, wo die Person jeden Tag vorbeikommt,
+   zum Beispiel im Flur oder an der Küchentür.
+5. Den Geräten sprechende Namen geben, zum Beispiel
+   `familie-1-bewegungsmelder` und `familie-1-zwischenstecker`. Unter diesen
+   Namen erscheinen sie später in SensIR.
+
+### 3. SensIR einmal zentral starten
+
+SensIR läuft an einer Stelle für alle Haushalte, zum Beispiel per Docker auf
+einem NAS. In `.env` (Vorlage: `.env.example`):
+
+```bash
+SHELLY_ENABLED=true
+SHELLY_AUTH_KEY=...        # Shelly-App → Einstellungen → Autorisierungs-Cloud-Key
+SHELLY_API_HOST=...        # Server-Host von derselben Seite
+TELEGRAM_BOT_TOKEN=...     # von @BotFather
+ADMIN_TELEGRAM_CHAT_ID=... # optional: Meldung, wenn ein Gerät offline geht
+```
+
+Dann `docker compose up -d --build`. Die Weboberfläche läuft auf Port 8000.
+
+### 4. Telegram-Bot anlegen
+
+1. Bei [@BotFather](https://t.me/BotFather) einen Bot anlegen und das Token in
+   `TELEGRAM_BOT_TOKEN` eintragen.
+2. Jeder Angehörige schreibt dem Bot `/id` und bekommt seine Chat-ID zurück.
+
+### 5. Haushalt in SensIR anlegen
+
+1. In der Weboberfläche **+ Neuen Haushalt anlegen**, Name und Zeitzone
+   eintragen.
+2. Unter **Shelly-Geräte** den Bewegungsmelder und den Zwischenstecker
+   auswählen.
+3. Die Angehörigen mit ihrer Telegram-Chat-ID als Kontakte eintragen.
+4. Auf der Haushaltsseite **Testnachricht senden** drücken. Kommt die Nachricht
+   bei allen an, erreichen sie auch die Alarme.
+5. Die TV-Schwelle auf 20 W setzen, damit Standby-Spitzen nicht als
+   Fernsehzeit zählen (Standard sind 10 W; die Sensor-ID steht in
+   `GET /api/sensors`):
+
+   ```bash
+   curl -X PATCH http://<sensir-host>:8000/api/sensors/<id> \
+     -H 'Content-Type: application/json' -d '{"config":{"on_threshold_w":20}}'
+   ```
+
+   `config` wird dabei komplett ersetzt. Hat der Sensor schon andere
+   Einträge (zum Beispiel `room`), diese mit angeben.
+
+### 6. Was danach passiert
+
+- **Bewegung** zählt als Lebenszeichen. Bleibt sie im erwarteten Zeitfenster
+  aus, bekommen alle aktiven Kontakte eine Telegram-Nachricht. Nach einigen
+  Wochen lernt SensIR den normalen Tagesablauf selbst.
+- **Fernsehzeiten** erscheinen als Balken in der Tages- und Wochenansicht, in
+  der Home-Assistant-Karte und im Wochenbild. Als Lebenszeichen zählen sie
+  bewusst nicht, denn jemand kann auch hilflos vor dem laufenden Fernseher
+  liegen.
+- **Jeden Sonntag um 23:50** kommen Wochen-Heatmap und CSV per Telegram. Die
+  Tasten **Heatmap** und **Alle Daten** im Chat liefern sie jederzeit.
+- **Geht ein Gerät offline**, zum Beispiel weil der Stecker gezogen wurde,
+  meldet SensIR das nach 30 Minuten dem Admin-Chat und gibt Entwarnung, sobald
+  es wieder da ist.
 
 ## Architektur
 
@@ -56,7 +151,20 @@ Bauteilliste:
 
 ## Voraussetzungen
 
-- Docker + Docker Compose
+**Für den Standardaufbau mit Shelly** (siehe
+[HowTo](#howto-sensir-mit-shelly-komponenten)):
+
+- Docker + Docker Compose an einer zentralen Stelle, zum Beispiel auf einem NAS
+- Pro Haushalt ein [Shelly BLU Motion ZB](https://www.shelly.com/de/products/shelly-blu-motion-zb)
+  als Bewegungsmelder und ein
+  [Shelly Plug M Gen3](https://www.shelly.com/de/products/shelly-plug-m-gen3-white)
+  als Zwischenstecker für den Fernseher, zusammen einmalig rund 35 €
+- WLAN mit Internetzugang im Haushalt
+- Ein Shelly-Cloud-Konto für alle Haushalte (Cloud-Key aus der Shelly-App)
+- Ein Telegram-Bot (über @BotFather) und Telegram bei den Angehörigen
+
+**Optional für IR-Bridges** (älterer Aufbau, derzeit nicht im Einsatz):
+
 - Ein oder mehrere Pearl-IR-Fernbedienungen mit Tasmota-Firmware
   (Modul-Typ "YTF IR Bridge (62)"), siehe `Pearl-IR-Sender-Tasmota.pdf` für
   die Flash-Anleitung.
