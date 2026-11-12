@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Korrekturen
+
+- Die Weboberfläche bindet `style.css` mit einem Hash des Dateiinhalts ein
+  (vorher fest `?v=2`). Browser mit alter CSS im Cache zeichneten die
+  TV-Balken schwarz und in der Tagesansicht über den ganzen Tag.
+- „Alle Daten“: Das Datum „seit …“ und der Dateiname nutzen die Zeitzone des
+  Haushalts statt UTC (ein Ereignis um 00:13 Uhr erschien sonst am Vortag).
+
 ### Testnachricht für die ganze Familie
 
 Auf der Haushaltsseite schickt „Testnachricht senden“ (neben „Überwachung

@@ -116,3 +116,20 @@ def test_household_page_shows_button_and_result(session, query, text):
         assert "test-notice" not in client.get(f"/households/{h.id}").text
     finally:
         app.dependency_overrides.clear()
+
+
+def test_stylesheet_url_changes_with_css_content(session):
+    """Die CSS-URL enthält einen Hash des Dateiinhalts, damit Browser nach
+    einem Update nicht die alte Fassung aus dem Cache nehmen."""
+    import hashlib
+
+    from app.main import app
+
+    expected = hashlib.sha256(Path("app/web/static/style.css").read_bytes()).hexdigest()[:10]
+    h = _household(session)
+    app.dependency_overrides[get_db] = lambda: session
+    try:
+        page = TestClient(app).get(f"/households/{h.id}").text
+    finally:
+        app.dependency_overrides.clear()
+    assert f'/static/style.css?v={expected}"' in page

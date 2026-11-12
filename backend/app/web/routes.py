@@ -1,4 +1,6 @@
 import datetime as dt
+import hashlib
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -18,6 +20,20 @@ from app.weekly_heatmap import send_weekly_heatmaps
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory="app/web/templates")
+
+
+def _static_version(path: str = "app/web/static/style.css") -> str:
+    """Kurzer Hash der Stylesheet-Datei für `style.css?v=...`: Ändert sich
+    die CSS, ändert sich die URL, und Browser laden sie neu statt eine alte
+    Fassung aus dem Cache zu nehmen (vorher fest `?v=2`, dadurch fehlten
+    z. B. die TV-Farben, und die Balken wurden schwarz gezeichnet)."""
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:10]
+    except OSError:
+        return "0"
+
+
+templates.env.globals["static_version"] = _static_version()
 
 
 def _tuya_trial_warning() -> str | None:

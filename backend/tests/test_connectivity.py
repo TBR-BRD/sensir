@@ -186,3 +186,21 @@ def test_bot_recognizes_all_data_button(monkeypatch, text):
     telegram_bot.telegram_bot._handle_update({"message": {"text": text, "chat": {"id": 42}}})
     assert calls == ["42"]
     assert "1 CSV-Dateien gesendet" in replies[0]
+
+
+def test_all_data_caption_uses_household_timezone(session, monkeypatch):
+    """Ein Ereignis um 00:13 Uhr Berliner Zeit liegt in UTC am Vortag; die
+    Bildunterschrift soll das lokale Datum zeigen."""
+    docs = []
+    monkeypatch.setattr(settings, "telegram_bot_token", "token")
+    monkeypatch.setattr(export, "send_telegram_document", lambda *a: docs.append(a) or True)
+    h = Household(name="Familie Berlin", timezone="Europe/Berlin")
+    session.add(h)
+    session.commit()
+    _contact(session, h, "42")
+    sensor = _sensor(session, h, "Flur", "x")
+    session.add(SensorEvent(sensor_id=sensor.id, kind="motion", received_at=dt.datetime(2026, 10, 31, 23, 13, tzinfo=UTC)))
+    session.commit()
+
+    export.send_all_data_to_chat(session, "42")
+    assert "seit 01.11.2026" in docs[0][3]

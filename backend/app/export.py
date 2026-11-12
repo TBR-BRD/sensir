@@ -169,8 +169,13 @@ def send_all_data_to_chat(session: Session, chat_id: str) -> dict[str, int | boo
             .join(Sensor, Sensor.id == SensorEvent.sensor_id)
             .where(Sensor.household_id == household.id)
         ).scalar_one()
-        since_label = f"seit {first:%d.%m.%Y}" if first else "noch keine Ereignisse"
-        filename = f"sensir_{_slug(household.name)}_alle-daten_{until:%Y-%m-%d}.csv"
+        # Datum in der Zeitzone des Haushalts: ein Ereignis um 00:13 Uhr
+        # Ortszeit liegt in UTC noch am Vortag.
+        tz = ZoneInfo(household.timezone)
+        if first is not None and first.tzinfo is None:
+            first = first.replace(tzinfo=dt.timezone.utc)  # SQLite speichert ohne Zeitzone
+        since_label = f"seit {first.astimezone(tz):%d.%m.%Y}" if first else "noch keine Ereignisse"
+        filename = f"sensir_{_slug(household.name)}_alle-daten_{until.astimezone(tz):%Y-%m-%d}.csv"
         caption = f"📦 Alle Sensordaten {household.name}: {since_label} ({count} Ereignisse)"
         success = send_telegram_document(chat_id, filename, csv_bytes, caption)
         result["sent" if success else "failed"] += 1
