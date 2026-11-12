@@ -81,6 +81,12 @@ class Sensor(Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     installed_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.utcnow)
     last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Erreichbarkeit laut Cloud (Shelly/Tuya "online"); None = unbekannt.
+    # offline_since bleibt nach der Rückkehr gesetzt, bis die Entwarnung
+    # verschickt ist (app/connectivity.py).
+    online: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    offline_since: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    offline_notified: Mapped[bool] = mapped_column(Boolean, default=False)
 
     household: Mapped[Household] = relationship(back_populates="sensors")
     events: Mapped[list["SensorEvent"]] = relationship(back_populates="sensor", cascade="all, delete-orphan")

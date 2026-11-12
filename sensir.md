@@ -614,9 +614,35 @@ Wochenübersicht der Detailseite, die Legende und die Bildunterschrift nennen
 die TV-Zeit der ganzen Woche.
 
 Im Telegram-Chat zeigt `/start` berechtigten Kontakten eine permanente
-Tastaturtaste **Heatmap**; das Senden von `Heatmap` oder `/heatmap` startet
-denselben Wochenexport an den anfragenden Chat. Aus Datenschutzgründen muss
-dieser Chat in jeder aktiven Familie als aktiver Kontakt eingetragen sein.
+Tastatur mit **Heatmap** und **Alle Daten**. `Heatmap` oder `/heatmap`
+startet denselben Wochenexport an den anfragenden Chat. `Alle Daten` oder
+`/daten` schickt je aktiver Familie eine CSV mit allen bisher gespeicherten
+Ereignissen (Spalten wie in 5.4, `send_all_data_to_chat` in `app/export.py`).
+Aus Datenschutzgründen muss der Chat für beides in jeder aktiven Familie als
+aktiver Kontakt eingetragen sein. Pausierte Familien sind nicht enthalten.
+
+### 5.7 Offline-Meldungen (`app/connectivity.py`)
+
+Die Shelly-Abfrage liest bei jedem Poll das Cloud-Feld `data.online`, die
+Tuya-Quelle etwa alle 10 Minuten `online` aus den Geräteinfos (eigener
+API-Call, daher seltener). Der Zustand landet in `sensors.online` und
+`sensors.offline_since` (Migration 0006). Alle 5 Minuten prüft
+`check_connectivity`: Ist ein Sensor länger als `OFFLINE_ALERT_MINUTES`
+(Standard 30) offline, geht **eine** Meldung an `ADMIN_TELEGRAM_CHAT_ID`
+(„⚠️ SensIR · Familie X: Sensor offline – Zwischenstecker offline seit
+14:32“); sind alle Sensoren eines Haushalts offline, heißt sie „alle Sensoren
+offline (Internet oder Strom weg?)“. Kommt der Sensor zurück, folgt „✅ wieder
+online“. Kürzere Aussetzer bleiben still, Meldungen wiederholen sich nicht.
+Die Familien bekommen diese technischen Meldungen nicht. Ohne
+`ADMIN_TELEGRAM_CHAT_ID` ist die Funktion aus; die eigene Chat-ID nennt der
+Bot auf `/id`. Die Detailseite zeigt den Status in der Sensortabelle
+(„Erreichbar“), die API in `GET /api/sensors` (`online`, `offline_since`).
+
+Grenzen: IR-Bridges über MQTT werden nicht überwacht (kein Online-Feld; ein
+stiller Sensor ist nicht von einem ausgefallenen zu unterscheiden). Ist die
+Cloud-API selbst oder das Internet der Synology weg, schlagen die Abfragen
+fehl und der zuletzt bekannte Zustand bleibt stehen - das meldet diese
+Funktion nicht.
 
 ## 6. API-Referenz (`/api`, siehe auch `/docs` für Swagger)
 
@@ -679,6 +705,8 @@ SOURCE_POLL_INTERVAL_SECONDS=120   # Tuya + Shelly Polling-Fallback
 
 # Alerting
 TELEGRAM_BOT_TOKEN=
+ADMIN_TELEGRAM_CHAT_ID=            # Offline-Meldungen nur an diesen Chat (5.7)
+OFFLINE_ALERT_MINUTES=30
 CHECK_INTERVAL_MINUTES=15
 DEFAULT_WINDOW_START=08:00
 DEFAULT_WINDOW_END=22:00

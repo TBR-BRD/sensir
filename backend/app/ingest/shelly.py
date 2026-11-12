@@ -18,6 +18,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.db import session_scope
 from app.ingest.base import PollingSource
+from app.connectivity import record_online_status
 from app.ingest.normalize import normalize_shelly
 from app.ingest.sink import record_events
 from app.models import Household, Sensor, SensorKind
@@ -94,7 +95,9 @@ class ShellySource(PollingSource):
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Shelly-Status %s: %s", sensor.external_id, exc)
                 continue
-            status = (body.get("data") or {}).get("device_status") or {}
+            data = body.get("data") or {}
+            record_online_status(SensorKind.shelly, str(sensor.external_id), data.get("online"))
+            status = data.get("device_status") or {}
             self._ingest(str(sensor.external_id), status, sensor, body)
 
     def _ingest(self, external_id: str, status: dict, sensor: Sensor | None, raw: dict) -> None:

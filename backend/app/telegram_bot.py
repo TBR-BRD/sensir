@@ -11,6 +11,7 @@ import httpx
 from app.alerting.telegram import HEATMAP_REPLY_KEYBOARD, TELEGRAM_API_URL, send_telegram_message
 from app.config import settings
 from app.db import session_scope
+from app.export import send_all_data_to_chat
 from app.weekly_heatmap import is_chat_authorized_for_all_active_households, send_weekly_heatmaps_to_chat
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ class TelegramBotListener:
         if not parts:
             return
         command = parts[0].split("@", 1)[0]
+        full_text = " ".join(text.strip().casefold().split())
         if command == "/id":
             send_telegram_message(chat_id, f"Deine Telegram-Chat-ID für SensIR: {chat_id}")
             return
@@ -116,7 +118,8 @@ class TelegramBotListener:
             if authorized:
                 send_telegram_message(
                     chat_id,
-                    "SensIR ist bereit. Tippe auf Heatmap oder sende /heatmap, um die Wochenbilder zu erhalten.",
+                    "SensIR ist bereit. Tippe auf Heatmap (oder /heatmap) für die Wochenbilder "
+                    "oder auf Alle Daten (oder /daten) für alle bisherigen Daten als CSV.",
                     reply_markup=HEATMAP_REPLY_KEYBOARD,
                 )
             else:
@@ -124,6 +127,20 @@ class TelegramBotListener:
                     chat_id,
                     f"Dieser Chat ist nicht als aktiver Kontakt in allen aktiven Familien eingetragen. Deine Chat-ID: {chat_id}",
                 )
+            return
+
+        if full_text == "alle daten" or command in {"/daten", "/alledaten"}:
+            with session_scope() as session:
+                result = send_all_data_to_chat(session, chat_id)
+            if result["not_configured"]:
+                response = "Der Telegram-Bot ist nicht konfiguriert."
+            elif not result["active_households"]:
+                response = "Es sind keine aktiven Familien vorhanden."
+            elif not result["authorized"]:
+                response = "Für alle Daten musst du als aktiver Telegram-Kontakt in allen aktiven Familien eingetragen sein."
+            else:
+                response = f"Alle Daten: {result['sent']} CSV-Dateien gesendet, {result['failed']} fehlgeschlagen."
+            send_telegram_message(chat_id, response, reply_markup=HEATMAP_REPLY_KEYBOARD)
             return
 
         if command in {"heatmap", "/heatmap"}:

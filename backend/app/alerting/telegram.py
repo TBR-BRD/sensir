@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 TELEGRAM_API_URL = "https://api.telegram.org/bot{token}/{method}"
 HEATMAP_REPLY_KEYBOARD = {
-    "keyboard": [[{"text": "Heatmap"}]],
+    "keyboard": [[{"text": "Heatmap"}, {"text": "Alle Daten"}]],
     "resize_keyboard": True,
     "is_persistent": True,
 }

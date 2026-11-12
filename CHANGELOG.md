@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Telegram-Button „Alle Daten“
+
+Neben „Heatmap“ gibt es den Button „Alle Daten“ (auch `/daten`): Er schickt je
+aktiver Familie eine CSV mit allen bisher gespeicherten Ereignissen. Gleiche
+Berechtigung wie bei den Heatmaps.
+
+### Offline-Meldungen für Shelly und Tuya
+
+SensIR merkt sich den Online-Status der Cloud je Sensor (Migration 0006) und
+meldet einen Ausfall nach `OFFLINE_ALERT_MINUTES` (Standard 30) einmalig an
+`ADMIN_TELEGRAM_CHAT_ID`, bei Rückkehr folgt eine Entwarnung. Die
+Sensortabelle der Detailseite zeigt den Status in der Spalte „Erreichbar“.
+
 ### TV-Zeiten und Ereignisse des Tages
 
 Aus den `appliance_on`/`appliance_off`-Meldungen der Zwischenstecker (TV)

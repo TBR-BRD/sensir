@@ -7,6 +7,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app import health
 from app.alerting.engine import run_periodic_check
 from app.config import settings
+from app.connectivity import run_connectivity_check
 from app.db import session_scope
 from app.export import export_and_send_all_households
 from app.ml.window_model import train_all_household_models
@@ -63,6 +64,12 @@ def start() -> None:
         run_periodic_check,
         trigger=IntervalTrigger(minutes=settings.check_interval_minutes),
         id="activity_check",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        run_connectivity_check,
+        trigger=IntervalTrigger(minutes=5),
+        id="connectivity_check",
         replace_existing=True,
     )
     scheduler.add_job(

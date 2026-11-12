@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     source_poll_interval_seconds: int = 120
 
     telegram_bot_token: str = ""
+    # Technische Meldungen (Sensor offline / wieder online) gehen nur an
+    # diesen Chat, nicht an die Familien. Leer = keine Offline-Meldungen.
+    # Die eigene Chat-ID verrät der Bot auf /id.
+    admin_telegram_chat_id: str = ""
+    offline_alert_minutes: int = 30
 
     check_interval_minutes: int = 15
     default_window_start: dt.time = dt.time(18, 0)

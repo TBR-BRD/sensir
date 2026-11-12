@@ -56,6 +56,8 @@ class SensorOut(BaseModel):
     is_active: bool
     installed_at: dt.datetime
     last_seen_at: dt.datetime | None
+    online: bool | None = None
+    offline_since: dt.datetime | None = None
 
 
 class CloudDeviceOut(BaseModel):

@@ -9,6 +9,7 @@ import threading
 from sqlalchemy import select
 
 from app.config import settings
+from app.connectivity import record_online_status
 from app.db import session_scope
 from app.ingest.base import PollingSource
 from app.ingest.normalize import normalize_tuya
@@ -16,6 +17,9 @@ from app.ingest.sink import record_events
 from app.models import Household, Sensor, SensorKind
 
 logger = logging.getLogger(__name__)
+
+# Online-Status etwa alle 10 Minuten abfragen (siehe poll_once).
+ONLINE_CHECK_EVERY_N_POLLS = max(1, round(600 / max(settings.source_poll_interval_seconds, 1)))
 
 try:
     from tuya_connector import TuyaOpenAPI, TuyaOpenPulsar, TuyaCloudPulsarTopic
@@ -32,6 +36,7 @@ class TuyaSource(PollingSource):
         self._api = None
         self._pulsar = None
         self._plug_state: dict[str, bool] = {}
+        self._poll_count = 0
 
     # -- Verbindung ---------------------------------------------------
     def connect(self) -> None:
@@ -75,9 +80,20 @@ class TuyaSource(PollingSource):
     def poll_once(self) -> None:
         if self._api is None:
             return
+        # Der Online-Status steckt nicht in /status, sondern in den
+        # Geräteinfos - die kosten einen eigenen API-Call, daher nur etwa
+        # alle 10 Minuten statt bei jeder Abfrage (Tuya-Kontingent).
+        self._poll_count += 1
+        check_online = self._poll_count % ONLINE_CHECK_EVERY_N_POLLS == 1
         for sensor in self._tuya_sensors():
             if not sensor.external_id:
                 continue
+            if check_online:
+                info = self._api.get(f"/v1.0/devices/{sensor.external_id}")
+                if info.get("success"):
+                    record_online_status(
+                        SensorKind.tuya, str(sensor.external_id), (info.get("result") or {}).get("online")
+                    )
             resp = self._api.get(f"/v1.0/devices/{sensor.external_id}/status")
             if not resp.get("success"):
                 logger.debug("Tuya-Status %s: %s", sensor.external_id, resp.get("msg"))

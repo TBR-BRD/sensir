@@ -1,4 +1,5 @@
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -107,6 +108,7 @@ def household_detail(request: Request, household_id: int, db: Session = Depends(
         {
             "request": request,
             "household": household,
+            "household_tz": ZoneInfo(household.timezone),
             "status": status,
             "today_activity_chart": today_activity_chart(db, household),
             "weekly_activity_chart": weekly_activity_chart(db, household),

@@ -134,7 +134,7 @@
 <section>
   <h2>Sensoren</h2>
   <table>
-    <tr><th>Name</th><th>Quelle</th><th>ID/Topic</th><th>Aktiv</th><th></th></tr>
+    <tr><th>Name</th><th>Quelle</th><th>ID/Topic</th><th>Erreichbar</th><th>Aktiv</th><th></th></tr>
     {% for s in sensors %}
     {# Inputs liegen als Tabellenzellen vor, die zugehörigen <form>-Tags
        darunter außerhalb der Tabelle (form/td dürfen sich nicht
@@ -143,6 +143,7 @@
       <td><input type="text" name="name" value="{{ s.name }}" form="edit-sensor-{{ s.id }}" style="width:10rem;"></td>
       <td>{{ s.kind.value }}</td>
       <td class="muted">{{ s.mqtt_topic or s.external_id }}</td>
+      <td>{% if s.online is sameas true %}<span class="sensor-online">online</span>{% elif s.online is sameas false %}<span class="sensor-offline">offline{% if s.offline_since %} seit {{ s.offline_since.astimezone(household_tz).strftime('%d.%m. %H:%M') }}{% endif %}</span>{% else %}<span class="muted">–</span>{% endif %}</td>
       <td>
         <input type="checkbox" name="is_active" form="edit-sensor-{{ s.id }}" {% if s.is_active %}checked{% endif %}>
         {% if s.config and s.config.get('confirmation_only') %} <span class="muted">(nur Bestätigung)</span>{% endif %}

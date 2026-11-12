@@ -18,10 +18,11 @@ import io
 import logging
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.alerting.telegram import send_telegram_document
+from app.config import settings
 from app.models import AlertLog, Contact, Household, Sensor, SensorEvent
 
 logger = logging.getLogger(__name__)
@@ -132,3 +133,54 @@ def export_and_send_all_households(session: Session) -> None:
                 logger.info("household %s: wöchentlicher Export, aber kein Telegram-Kontakt", household.id)
         except Exception:
             logger.exception("household %s: wöchentlicher Datenexport fehlgeschlagen", household.id)
+
+
+ALL_DATA_SINCE = dt.datetime(2000, 1, 1, tzinfo=dt.timezone.utc)
+
+
+def send_all_data_to_chat(session: Session, chat_id: str) -> dict[str, int | bool]:
+    """Alle bisher gespeicherten Ereignisse jedes aktiven Haushalts als CSV an
+    den anfragenden Telegram-Chat (Button „Alle Daten“). Gleiche Berechtigung
+    wie bei den Heatmaps: Der Chat muss in allen aktiven Familien aktiver
+    Kontakt sein."""
+    from app.weekly_heatmap import _active_households_and_chat_contacts  # vermeidet Importzyklus
+
+    result: dict[str, int | bool] = {
+        "authorized": False,
+        "active_households": 0,
+        "sent": 0,
+        "failed": 0,
+        "not_configured": not bool(settings.telegram_bot_token),
+    }
+    if result["not_configured"]:
+        return result
+    households, contacts = _active_households_and_chat_contacts(session, chat_id)
+    result["active_households"] = len(households)
+    if not households or any(household.id not in contacts for household in households):
+        return result
+    result["authorized"] = True
+
+    until = dt.datetime.now(dt.timezone.utc)
+    for household in households:
+        csv_bytes = build_household_csv(session, household, ALL_DATA_SINCE, until)
+        count = _row_count(csv_bytes)
+        first = session.execute(
+            select(func.min(SensorEvent.received_at))
+            .join(Sensor, Sensor.id == SensorEvent.sensor_id)
+            .where(Sensor.household_id == household.id)
+        ).scalar_one()
+        since_label = f"seit {first:%d.%m.%Y}" if first else "noch keine Ereignisse"
+        filename = f"sensir_{_slug(household.name)}_alle-daten_{until:%Y-%m-%d}.csv"
+        caption = f"📦 Alle Sensordaten {household.name}: {since_label} ({count} Ereignisse)"
+        success = send_telegram_document(chat_id, filename, csv_bytes, caption)
+        result["sent" if success else "failed"] += 1
+        session.add(
+            AlertLog(
+                household_id=household.id,
+                contact_id=contacts[household.id].id,
+                message=f"[Datenexport alle Daten bis {until:%Y-%m-%d}] {filename}",
+                success=success,
+            )
+        )
+    session.commit()
+    return result
