@@ -84,6 +84,8 @@ Dann `docker compose up -d --build`. Die Weboberfläche läuft auf Port 8000.
 
 ### 5. Haushalt in SensIR anlegen
 
+![SensIR-Übersicht mit drei Haushalten, alle „Alles in Ordnung“](docs/screenshots/dashboard.png)
+
 1. In der Weboberfläche **+ Neuen Haushalt anlegen**, Name und Zeitzone
    eintragen.
 2. Unter **Shelly-Geräte** den Bewegungsmelder und den Zwischenstecker
@@ -288,6 +290,8 @@ Beide Tasten funktionieren nur, wenn der Chat in **jeder** aktiven Familie als
 aktiver Telegram-Kontakt hinterlegt ist. Alarme bekommt ein Kontakt dagegen
 für jede Familie, bei der er eingetragen ist.
 
+<img src="docs/screenshots/telegram-heatmap-alle-daten.png" alt="Telegram-Chat mit dem SensIR-Bot: Wochen-Heatmaps je Familie und CSV-Dateien über „Alle Daten“" width="420">
+
 ### Weitere Angehörige hinzufügen
 
 Ein Telegram-Bot darf nur Leuten schreiben, die ihn vorher selbst gestartet
@@ -310,6 +314,8 @@ haben. Neue Angehörige gehen deshalb so vor:
 5. **Testen:** Oben auf der Haushaltsseite **Testnachricht senden** klicken.
    Die Seite zeigt danach, an wie viele Kontakte die Nachricht ging.
 
+![Haushaltsseite: Beobachtungsfenster, Kontakte mit „Testnachricht senden“ und die Ereignisse von heute](docs/screenshots/kontakte-zeitfenster.png)
+
 Den Bot-Link kann jeder öffnen, das ist unbedenklich: Wer den Bot startet,
 sieht nur seine eigene Chat-ID. Alarme, Heatmaps und Daten gehen
 ausschließlich an Chats, die in SensIR als Kontakt eingetragen sind.
@@ -321,6 +327,10 @@ einem Home-Assistant-Dashboard — Status auf einen Blick, ein Pfeil klappt
 die letzten Ereignisse je Haushalt auf/zu, Klick auf den Namen öffnet die
 volle sensir-Seite in neuem Tab. Fragt die sensir-API direkt aus dem
 Browser ab, braucht also keine eigene HA-Integration.
+
+| Übersicht | Aufgeklappt mit Ereignissen |
+|---|---|
+| <img src="docs/screenshots/ha-karte.png" alt="SensIR-Karte in Home Assistant mit Tagesübersicht und TV-Zeit je Familie" width="340"> | <img src="docs/screenshots/ha-karte-ereignisse.png" alt="SensIR-Karte aufgeklappt mit der Ereignisliste von heute" width="340"> |
 
 ```yaml
 type: custom:sensir-card
