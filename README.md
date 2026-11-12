@@ -107,6 +107,10 @@ Dann `docker compose up -d --build`. Die Weboberfläche läuft auf Port 8000.
 
 ### 6. Was danach passiert
 
+![Haushaltsseite: Status, Testnachricht-Button und Tagesübersicht mit Ereignissen und blauen TV-Balken](docs/screenshots/tagesuebersicht.png)
+
+![Wochenübersicht: Ereignisse pro Stunde von Montag bis Sonntag, TV-Zeiten als blaue Balken, darunter die Sensoren mit Erreichbarkeit](docs/screenshots/wochenuebersicht.png)
+
 - **Bewegung** zählt als Lebenszeichen. Bleibt sie im erwarteten Zeitfenster
   aus, bekommen alle aktiven Kontakte eine Telegram-Nachricht. Nach einigen
   Wochen lernt SensIR den normalen Tagesablauf selbst.
