@@ -1,0 +1,227 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="790" viewBox="0 0 1240 790" role="img" aria-label="Systemplan SensIR: Sensoren, Clouds, Synology-Backend, Telegram, Home Assistant, Browser">
+    <style>
+svg text { font-family:"IBM Plex Sans","Segoe UI",Helvetica,Arial,sans-serif; }
+svg text { font-family: "IBM Plex Sans","Segoe UI",Helvetica,Arial,sans-serif; fill: #13212c; }
+.colhead { font-family: "IBM Plex Mono",Menlo,Consolas,monospace; font-size: 12px; letter-spacing: .12em; fill: #566a79; }
+.t { font-size: 14px; font-weight: 600; }
+.s { font-size: 11.5px; fill: #566a79; }
+.id { font-family: "IBM Plex Mono",Menlo,Consolas,monospace; font-size: 11px; fill: #566a79; }
+.tag { font-family: "IBM Plex Mono",Menlo,Consolas,monospace; font-size: 10.5px; font-weight: 500; }
+.box { fill: #ffffff; stroke: #b9c8d3; stroke-width: 1.2; }
+.nas { fill: #e8eff4; stroke: #2c4a60; stroke-width: 1.4; }
+.mod { fill: #ffffff; stroke: #b9c8d3; stroke-width: 1; }
+.row { fill: #e8eff4; stroke: none; }
+.dashed { stroke-dasharray: 5 4; }
+.wire { fill: none; stroke: #2c4a60; stroke-width: 1.6; }
+.wire.alarm { stroke: #b8352a; }
+.wire.ok { stroke: #2b7a4b; }
+.dot { fill: #2c4a60; }
+.shelly { fill: #1d6aa8; } .tuya { fill: #c4621a; } .alarmc { fill: #b8352a; } .okc { fill: #2b7a4b; }
+.stroke-shelly { stroke: #1d6aa8; } .stroke-tuya { stroke: #c4621a; }
+.legend text { font-size: 12px; fill: #566a79; }
+
+</style>
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill: #2c4a60"/></marker>
+      <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill: #b8352a"/></marker>
+      <marker id="arrO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill: #2b7a4b"/></marker>
+    </defs>
+    <rect x="0" y="0" width="1240" height="790" fill="#ffffff"/>
+
+    <!-- Spaltenköpfe -->
+    <text class="colhead" x="20" y="32">HAUSHALTE</text>
+    <text class="colhead" x="370" y="32">HERSTELLER-CLOUD</text>
+    <text class="colhead" x="610" y="32">SYNOLOGY NAS</text>
+    <text class="colhead" x="1010" y="32">AUSGABE</text>
+
+    <!-- ===== Haushalte ===== -->
+    <!-- Familie 1 -->
+    <rect class="box" x="20" y="50" width="280" height="174"/>
+    <text class="t" x="34" y="74">Familie 1</text>
+    <g>
+      <rect class="row" x="36" y="90" width="248" height="26"/>
+      <text class="id" x="44" y="107">#4</text><text x="70" y="107" font-size="13">Außenkamera</text>
+      <text class="s" x="276" y="107" text-anchor="end">nur Bestätigung</text>
+      <rect class="tuya" x="36" y="90" width="3" height="26"/>
+      <rect class="row" x="36" y="122" width="248" height="26"/>
+      <text class="id" x="44" y="139">#1</text><text x="70" y="139" font-size="13">Bewegungsmelder</text>
+      <rect class="shelly" x="36" y="122" width="3" height="26"/>
+      <rect class="row" x="36" y="154" width="248" height="26"/>
+      <text class="id" x="44" y="171">#2</text><text x="70" y="171" font-size="13">Notrufknopf</text>
+      <text class="tag alarmc" x="276" y="171" text-anchor="end">SOFORT-ALARM</text>
+      <rect class="shelly" x="36" y="154" width="3" height="26"/>
+      <rect class="row" x="36" y="186" width="248" height="26"/>
+      <text class="id" x="44" y="203">#3</text><text x="70" y="203" font-size="13">Zwischenstecker</text>
+      <text class="s" x="276" y="203" text-anchor="end">TV ab 20 W</text>
+      <rect class="shelly" x="36" y="186" width="3" height="26"/>
+    </g>
+    <!-- Familie 2 -->
+    <rect class="box" x="20" y="254" width="280" height="110"/>
+    <text class="t" x="34" y="278">Familie 2</text>
+    <rect class="row" x="36" y="294" width="248" height="26"/>
+    <text class="id" x="44" y="311">#9</text><text x="70" y="311" font-size="13">Bewegungsmelder</text>
+    <rect class="shelly" x="36" y="294" width="3" height="26"/>
+    <rect class="row" x="36" y="326" width="248" height="26"/>
+    <text class="id" x="44" y="343">#8</text><text x="70" y="343" font-size="13">Zwischenstecker</text>
+    <text class="s" x="276" y="343" text-anchor="end">TV ab 20 W</text>
+    <rect class="shelly" x="36" y="326" width="3" height="26"/>
+    <!-- Familie 3 -->
+    <rect class="box" x="20" y="394" width="280" height="110"/>
+    <text class="t" x="34" y="418">Familie 3</text>
+    <rect class="row" x="36" y="434" width="248" height="26"/>
+    <text class="id" x="44" y="451">#7</text><text x="70" y="451" font-size="13">Bewegungsmelder</text>
+    <rect class="shelly" x="36" y="434" width="3" height="26"/>
+    <rect class="row" x="36" y="466" width="248" height="26"/>
+    <text class="id" x="44" y="483">#6</text><text x="70" y="483" font-size="13">Zwischenstecker</text>
+    <text class="s" x="276" y="483" text-anchor="end">TV ab 20 W</text>
+    <rect class="shelly" x="36" y="466" width="3" height="26"/>
+
+    <text class="s" x="20" y="528">Sensoren hängen im WLAN der Familie</text>
+    <text class="s" x="20" y="544">und melden sich bei der Hersteller-Cloud.</text>
+
+    <!-- Sensor → Cloud Verdrahtung -->
+    <path class="wire stroke-tuya" style="stroke: #c4621a" d="M284 103 H368" marker-end="url(#arr)"/>
+    <g style="stroke: #1d6aa8" fill="none" stroke-width="1.6">
+      <path d="M284 135 H328 M284 167 H328 M284 199 H328 M284 307 H328 M284 339 H328 M284 447 H328 M284 479 H328"/>
+      <path d="M328 135 V479"/>
+      <path d="M328 295 H366"/>
+    </g>
+    <path d="M366 295 l-7 -3.5 v7 z" class="shelly"/>
+    <g class="shelly"><circle cx="328" cy="167" r="3"/><circle cx="328" cy="199" r="3"/><circle cx="328" cy="295" r="3"/><circle cx="328" cy="307" r="3"/><circle cx="328" cy="339" r="3"/><circle cx="328" cy="447" r="3"/></g>
+
+    <!-- ===== Clouds ===== -->
+    <rect class="box" x="370" y="60" width="190" height="90"/>
+    <rect class="tuya" x="370" y="60" width="190" height="4"/>
+    <text class="t" x="384" y="88">Tuya Cloud</text>
+    <text class="s" x="384" y="107">1 Gerät · Abfrage alle 2 min</text>
+    <text class="s" x="384" y="123">+ Pulsar-Stream (Echtzeit)</text>
+    <text class="s" x="384" y="139">Online-Prüfung alle 10 min</text>
+
+    <rect class="box" x="370" y="240" width="190" height="110"/>
+    <rect class="shelly" x="370" y="240" width="190" height="4"/>
+    <text class="t" x="384" y="268">Shelly Cloud</text>
+    <text class="s" x="384" y="287">7 Geräte · Status alle 2 min</text>
+    <text class="s" x="384" y="303">+ WebSocket (Echtzeit)</text>
+    <text class="s" x="384" y="319">Status liefert auch „online“</text>
+    <text class="s" x="384" y="335">ein Konto für alle Haushalte</text>
+
+    <rect class="box dashed" x="370" y="420" width="190" height="80"/>
+    <text class="t" x="384" y="448" style="fill: #566a79">MQTT-Broker</text>
+    <text class="s" x="384" y="467">für IR-Bridges (Tasmota)</text>
+    <text class="s" x="384" y="483">derzeit kein Gerät</text>
+
+    <!-- Cloud → Ingest -->
+    <path class="wire" d="M560 103 H590 V295"/>
+    <path class="wire" d="M560 295 H590"/>
+    <path class="wire dashed" d="M560 460 H590 V295"/>
+    <path class="wire" d="M590 133 H640" marker-end="url(#arr)"/>
+    <circle class="dot" cx="590" cy="133" r="3"/><circle class="dot" cx="590" cy="295" r="3"/>
+    <text class="s" x="566" y="96">HTTPS</text>
+
+    <!-- ===== Synology NAS ===== -->
+    <rect class="nas" x="610" y="50" width="370" height="690"/>
+    <text class="s" x="624" y="70">docker-compose · 3 Container</text>
+
+    <rect class="box" x="626" y="80" width="338" height="502"/>
+    <text class="t" x="640" y="102">backend</text>
+    <text class="s" x="702" y="102">FastAPI · Python 3.12 · Port 8000</text>
+
+    <!-- Module: y = 112 + n*56, Höhe 46, Mitte +23 -->
+    <rect class="mod" x="642" y="112" width="306" height="46"/>
+    <text x="654" y="131" font-size="13" font-weight="600">Ingest &amp; Normalisierung</text>
+    <text class="s" x="654" y="148">shelly.py · tuya.py · mqtt_ir.py → Ereignisse</text>
+
+    <rect class="mod" x="642" y="168" width="306" height="46"/>
+    <text x="654" y="187" font-size="13" font-weight="600">Erreichbarkeit</text>
+    <text class="s" x="654" y="204">alle 5 min · Meldung nach 30 min offline</text>
+
+    <rect class="mod" x="642" y="224" width="306" height="46" style="stroke: #b8352a"/>
+    <text x="654" y="243" font-size="13" font-weight="600">Alarm-Engine</text>
+    <text class="s" x="654" y="260">Beobachtungsfenster alle 15 min · Notruf sofort</text>
+
+    <rect class="mod" x="642" y="280" width="306" height="46"/>
+    <text x="654" y="299" font-size="13" font-weight="600">ML-Fenstermodell</text>
+    <text class="s" x="654" y="316">Training täglich 03:00 UTC → Erwartung</text>
+
+    <rect class="mod" x="642" y="336" width="306" height="46"/>
+    <text x="654" y="355" font-size="13" font-weight="600">Wochenexport</text>
+    <text class="s" x="654" y="372">Sonntag 23:50 · CSV + Heatmap je Haushalt</text>
+
+    <rect class="mod" x="642" y="392" width="306" height="46"/>
+    <text x="654" y="411" font-size="13" font-weight="600">Telegram-Bot</text>
+    <text class="s" x="654" y="428">Long Polling · Heatmap · Alle Daten · /id</text>
+
+    <rect class="mod" x="642" y="448" width="306" height="46"/>
+    <text x="654" y="467" font-size="13" font-weight="600">Web-Oberfläche &amp; REST-API</text>
+    <text class="s" x="654" y="484">Haushaltsseiten · /api/… · /healthz</text>
+
+    <rect class="mod" x="642" y="504" width="306" height="46"/>
+    <text x="654" y="523" font-size="13" font-weight="600">Heartbeat</text>
+    <text class="s" x="654" y="540">jede Minute · zeigt, dass der Prozess lebt</text>
+
+    <!-- interne Pfeile: ML → Engine -->
+    <path class="wire" d="M642 303 H632 V247 H640" marker-end="url(#arr)" style="stroke-width:1.2"/>
+
+    <!-- Postgres & autoheal -->
+    <rect class="box" x="626" y="612" width="164" height="110"/>
+    <text class="t" x="640" y="636">postgres 16</text>
+    <text class="s" x="640" y="655">Ereignisse</text>
+    <text class="s" x="640" y="671">Haushalte, Sensoren, Kontakte</text>
+    <text class="s" x="640" y="687">Beobachtungsfenster</text>
+    <text class="s" x="640" y="703">Alarm-Log · ~70 MB/Jahr</text>
+
+    <rect class="box" x="806" y="612" width="158" height="110"/>
+    <text class="t" x="820" y="636">autoheal</text>
+    <text class="s" x="820" y="655">startet backend neu,</text>
+    <text class="s" x="820" y="671">wenn /healthz</text>
+    <text class="s" x="820" y="687">nicht mehr antwortet</text>
+
+    <path class="wire" d="M708 582 V610" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <text class="s" x="716" y="600">SQL</text>
+    <path class="wire dashed" d="M885 612 V584" marker-end="url(#arr)"/>
+
+    <!-- ===== Ausgabe ===== -->
+    <rect class="box" x="1010" y="80" width="214" height="214"/>
+    <text class="t" x="1024" y="104">Telegram</text>
+    <rect class="row" x="1022" y="114" width="190" height="44"/>
+    <text x="1032" y="132" font-size="13" font-weight="600">Admin-Chat</text>
+    <text class="s" x="1032" y="149">offline · wieder online</text>
+    <rect class="okc" x="1022" y="114" width="3" height="44"/>
+    <rect class="row" x="1022" y="168" width="190" height="64"/>
+    <text x="1032" y="186" font-size="13" font-weight="600">Kontakte je Familie</text>
+    <text class="s" x="1032" y="203">Inaktivitäts- &amp; Notruf-Alarm</text>
+    <text class="s" x="1032" y="219">Wochen-Heatmap · CSV</text>
+    <rect class="alarmc" x="1022" y="168" width="3" height="64"/>
+    <text class="s" x="1024" y="256">Buttons im Chat:</text>
+    <text class="s" x="1024" y="272">Heatmap · Alle Daten → Bot</text>
+
+    <rect class="box" x="1010" y="330" width="214" height="80"/>
+    <text class="t" x="1024" y="354">Home Assistant</text>
+    <text class="s" x="1024" y="373">Lovelace-Karte sensir-card 1.7.0</text>
+    <text class="s" x="1024" y="389">Ereignisse heute · TV heute</text>
+
+    <rect class="box" x="1010" y="436" width="214" height="66"/>
+    <text class="t" x="1024" y="460">Browser</text>
+    <text class="s" x="1024" y="479">Dashboard &amp; Haushaltsseiten</text>
+
+    <!-- Backend → Ausgabe -->
+    <path class="wire ok" d="M948 191 H976 V136 H1008" marker-end="url(#arrO)"/>
+    <path class="wire alarm" d="M948 247 H994 M948 359 H994 M948 415 H994" />
+    <path class="wire alarm" d="M994 200 V415"/>
+    <path class="wire alarm" d="M994 200 H1008" marker-end="url(#arrA)"/>
+    <g class="alarmc"><circle cx="994" cy="247" r="3"/><circle cx="994" cy="359" r="3"/></g>
+    <path class="wire" d="M948 471 H1002 V370 H1008" marker-end="url(#arr)"/>
+    <path class="wire" d="M1002 471 H1008" marker-end="url(#arr)"/>
+    <circle class="dot" cx="1002" cy="471" r="3"/>
+
+    <!-- Legende -->
+    <g class="legend" transform="translate(20 760)">
+      <rect class="shelly" x="0" y="-9" width="10" height="10"/><text x="16" y="0">Shelly</text>
+      <rect class="tuya" x="70" y="-9" width="10" height="10"/><text x="86" y="0">Tuya</text>
+      <path class="wire" d="M140 -4 H176" marker-end="url(#arr)"/><text x="184" y="0">Datenfluss</text>
+      <path class="wire alarm" d="M270 -4 H306" marker-end="url(#arrA)"/><text x="314" y="0">Alarme &amp; Berichte an Familien</text>
+      <path class="wire ok" d="M500 -4 H536" marker-end="url(#arrO)"/><text x="544" y="0">Störungsmeldung an Admin</text>
+      <path class="wire dashed" d="M712 -4 H748"/><text x="756" y="0">nicht in Betrieb / Überwachung</text>
+      <text x="960" y="0">#n = Sensor-ID in SensIR</text>
+    </g>
+  </svg>

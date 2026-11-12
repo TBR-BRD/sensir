@@ -48,6 +48,12 @@ Hintergrund, Personas, Business Model Canvas etc. siehe die Projekt-Doku
    Postgres (Events, Konfiguration, Historie)
 ```
 
+Grafischer Systemplan mit allen Komponenten (Sensoren, Clouds, Container,
+Ausgabekanäle) — [docs/systemplan.html](docs/systemplan.html) als Seite mit
+Bauteilliste:
+
+![SensIR Systemplan](docs/systemplan.svg)
+
 ## Voraussetzungen
 
 - Docker + Docker Compose
