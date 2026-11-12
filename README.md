@@ -78,7 +78,9 @@ Dann `docker compose up -d --build`. Die Weboberfläche läuft auf Port 8000.
 
 1. Bei [@BotFather](https://t.me/BotFather) einen Bot anlegen und das Token in
    `TELEGRAM_BOT_TOKEN` eintragen.
-2. Jeder Angehörige schreibt dem Bot `/id` und bekommt seine Chat-ID zurück.
+2. Jeder Angehörige öffnet den Bot, drückt **Starten**, schreibt `/id` und
+   bekommt seine Chat-ID zurück. Wie andere den Bot finden, steht unter
+   [Weitere Angehörige hinzufügen](#weitere-angehörige-hinzufügen).
 
 ### 5. Haushalt in SensIR anlegen
 
@@ -274,10 +276,43 @@ als Fallback für neue/verwaiste Haushalte.
 
 Bot bei [@BotFather](https://t.me/BotFather) anlegen, Token in
 `TELEGRAM_BOT_TOKEN` eintragen. Die Person schreibt dem Bot `/id`; die Antwort
-enthält ihre Chat-ID, die beim SensIR-Kontakt eingetragen wird. `/start` zeigt
-berechtigten Kontakten die Tastaturtaste **Heatmap**; alternativ löst `Heatmap`
-oder `/heatmap` die Wochenbilder aus. Ein Chat darf Heatmaps nur abrufen, wenn
-er in jeder aktiven Familie als aktiver Telegram-Kontakt hinterlegt ist.
+enthält ihre Chat-ID, die beim SensIR-Kontakt eingetragen wird.
+
+Im Chat zeigt der Bot zwei Tasten (nach `/start` sichtbar):
+
+- **Heatmap** (oder `/heatmap`): die Wochenbilder aller aktiven Familien
+- **Alle Daten** (oder `/daten`): je aktiver Familie eine CSV mit allen
+  bisher gespeicherten Ereignissen
+
+Beide Tasten funktionieren nur, wenn der Chat in **jeder** aktiven Familie als
+aktiver Telegram-Kontakt hinterlegt ist. Alarme bekommt ein Kontakt dagegen
+für jede Familie, bei der er eingetragen ist.
+
+### Weitere Angehörige hinzufügen
+
+Ein Telegram-Bot darf nur Leuten schreiben, die ihn vorher selbst gestartet
+haben. Neue Angehörige gehen deshalb so vor:
+
+1. **Benutzernamen des Bots finden:** In Telegram den Chat mit dem SensIR-Bot
+   öffnen und oben auf seinen Namen tippen. Im Profil steht der Benutzername
+   mit `@`, zum Beispiel `@MeinSensirBot` (Bot-Namen enden immer auf „bot“).
+   Alternativ zeigt [@BotFather](https://t.me/BotFather) mit `/mybots` alle
+   eigenen Bots an.
+2. **Link schicken:** `https://t.me/MeinSensirBot` (echter Name, ohne `@`)
+   an die Person schicken, oder im Bot-Profil über das Menü **Teilen**
+   weiterleiten.
+3. **Bot starten:** Die Person tippt auf den Link, drückt **Starten** und
+   schreibt `/id`. Der Bot antwortet mit ihrer Chat-ID.
+4. **Als Kontakt eintragen:** Auf der Haushaltsseite unter **Kontakte** Name
+   und Telegram-Chat-ID eintragen und **Kontakt hinzufügen** klicken. Soll die
+   Person für mehrere Familien Alarme bekommen, auf jeder dieser
+   Haushaltsseiten eintragen.
+5. **Testen:** Oben auf der Haushaltsseite **Testnachricht senden** klicken.
+   Die Seite zeigt danach, an wie viele Kontakte die Nachricht ging.
+
+Den Bot-Link kann jeder öffnen, das ist unbedenklich: Wer den Bot startet,
+sieht nur seine eigene Chat-ID. Alarme, Heatmaps und Daten gehen
+ausschließlich an Chats, die in SensIR als Kontakt eingetragen sind.
 
 ## Home Assistant Lovelace-Karte
 
