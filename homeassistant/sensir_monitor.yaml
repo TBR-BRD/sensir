@@ -1,0 +1,63 @@
+# SensIR-Überwachung für Home Assistant (als Package).
+#
+# Ablage: /config/packages/sensir_monitor.yaml - configuration.yaml braucht
+#   homeassistant:
+#     packages: !include_dir_named packages
+# Danach: Entwicklerwerkzeuge -> YAML -> Konfiguration prüfen -> Neu starten.
+#
+# Prüft jede Minute /healthz des SensIR-Backends und schickt eine Push-
+# Meldung über die Home-Assistant-App, wenn SensIR 5 Minuten lang nicht
+# antwortet, und eine Entwarnung, wenn es wieder läuft.
+# Läuft Home Assistant auf demselben Server wie SensIR, erkennt das nur
+# Ausfälle von Docker/SensIR, nicht des ganzen Servers - dafür
+# HEALTHCHECK_PING_URL (siehe README, "Ausfallüberwachung").
+#
+# Anpassen: <sensir-host> und notify.mobile_app_<geraet> (weitere Geräte
+# als zusätzliche Aktion mit derselben data).
+
+rest:
+  - resource: "http://<sensir-host>:8000/healthz"
+    scan_interval: 60
+    timeout: 15
+    binary_sensor:
+      - name: "SensIR Backend"
+        unique_id: sensir_backend_health
+        device_class: connectivity
+        value_template: "{{ value_json.status == 'ok' }}"
+
+automation:
+  - id: sensir_backend_ausgefallen
+    alias: "SensIR ausgefallen"
+    mode: single
+    trigger:
+      - platform: template
+        value_template: "{{ not is_state('binary_sensor.sensir_backend', 'on') }}"
+        for: "00:05:00"
+    action:
+      - service: notify.mobile_app_<geraet>
+        data:
+          title: "SensIR ausgefallen"
+          message: >-
+            SensIR antwortet seit
+            {{ as_timestamp(states.binary_sensor.sensir_backend.last_changed) | timestamp_custom('%H:%M') }}
+            Uhr nicht mehr. Bewegungen werden nicht erfasst, Warnungen nicht verschickt.
+
+  - id: sensir_backend_wieder_da
+    alias: "SensIR wieder erreichbar"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.sensir_backend
+        to: "on"
+        for: "00:01:00"
+    condition:
+      - condition: template
+        value_template: >-
+          {{ trigger.from_state is not none
+             and trigger.from_state.state in ['off', 'unavailable', 'unknown']
+             and (now() - trigger.from_state.last_changed).total_seconds() > 300 }}
+    action:
+      - service: notify.mobile_app_<geraet>
+        data:
+          title: "SensIR wieder erreichbar"
+          message: "SensIR antwortet wieder."

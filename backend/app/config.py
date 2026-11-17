@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     admin_telegram_chat_id: str = ""
     offline_alert_minutes: int = 30
 
+    # Externer Totmann-Schalter (z. B. https://hc-ping.com/<uuid>), siehe
+    # app/uptime_ping.py. Leer = aus.
+    healthcheck_ping_url: str = ""
+    healthcheck_ping_interval_minutes: int = 5
+
     check_interval_minutes: int = 15
     default_window_start: dt.time = dt.time(18, 0)
     default_window_end: dt.time = dt.time(23, 59, 59)

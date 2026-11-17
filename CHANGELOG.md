@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Ausfallüberwachung
+
+- Neuer optionaler Totmann-Ping (`HEALTHCHECK_PING_URL`, z. B.
+  healthchecks.io): SensIR meldet sich alle 5 Minuten ausgehend; bleibt der
+  Ping aus, alarmiert der externe Dienst. Bei nicht erreichbarer Datenbank
+  geht sofort `<url>/fail` raus. Anlass: Am 17.11. lief der Docker-Dienst
+  der Synology rund sechs Stunden nicht, ohne dass jemand benachrichtigt
+  wurde.
+- Vorlage `homeassistant/sensir_monitor.yaml`: Home Assistant prüft
+  `/healthz` und meldet Ausfall und Entwarnung per App-Push.
+
 ### Korrekturen
 
 - Die Weboberfläche bindet `style.css` mit einem Hash des Dateiinhalts ein

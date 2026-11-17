@@ -373,6 +373,31 @@ Auf der Haushaltsübersicht verschickt der Button **„Heatmap an Telegram sende
 für jede aktive Familie ein Wochen-Heatmap-Bild an deren aktive Telegram-Kontakte.
 Die Grafik zeigt Ereignisse je Stunde von Montag bis Sonntag.
 
+## Ausfallüberwachung
+
+SensIR kann sich nicht selbst als ausgefallen melden. Fällt Docker oder der
+ganze Server aus, kommen keine Warnungen mehr, und niemand merkt es. Zwei
+Ergänzungen helfen:
+
+- **Externer Totmann-Schalter (empfohlen):** SensIR ruft alle 5 Minuten eine
+  Ping-URL auf, und zwar *ausgehend*, ein Zugriff von außen auf den Server ist
+  nicht nötig. Bleibt der Ping aus, alarmiert der Dienst per Mail oder
+  Telegram. Kostenlos geht das z. B. mit [healthchecks.io](https://healthchecks.io):
+  1. Konto anlegen und einen Check mit **Period 5 Minuten** und **Grace
+     10 Minuten** erstellen.
+  2. Unter *Integrations* Mail und/oder Telegram als Benachrichtigung einrichten.
+  3. Die Ping-URL des Checks in `.env` eintragen:
+     `HEALTHCHECK_PING_URL=https://hc-ping.com/<uuid>` und das Backend neu
+     bauen (`docker compose up -d --build backend`).
+
+  Ist die Datenbank nicht erreichbar, meldet SensIR sofort einen Fehler
+  (`<url>/fail`). Ist der Prozess eingefroren, bleibt der Ping aus.
+- **Home Assistant:** [`homeassistant/sensir_monitor.yaml`](homeassistant/sensir_monitor.yaml)
+  prüft jede Minute `/healthz` und schickt eine Push-Meldung über die
+  HA-App, wenn SensIR 5 Minuten nicht antwortet. Läuft Home Assistant auf
+  demselben Server, erkennt das nur Ausfälle von Docker oder SensIR, nicht
+  einen Ausfall des ganzen Servers.
+
 ## Bekannte Lücken / nächste Schritte
 
 - **Sensor-Sicherheit**: aktuell MQTT-Benutzername/Passwort ohne TLS, und

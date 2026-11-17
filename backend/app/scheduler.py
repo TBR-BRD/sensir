@@ -11,6 +11,7 @@ from app.connectivity import run_connectivity_check
 from app.db import session_scope
 from app.export import export_and_send_all_households
 from app.ml.window_model import train_all_household_models
+from app.uptime_ping import send_uptime_ping
 from app.weekly_heatmap import send_weekly_heatmaps
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,13 @@ def start() -> None:
         id="connectivity_check",
         replace_existing=True,
     )
+    if settings.healthcheck_ping_url.strip():
+        scheduler.add_job(
+            send_uptime_ping,
+            trigger=IntervalTrigger(minutes=settings.healthcheck_ping_interval_minutes),
+            id="uptime_ping",
+            replace_existing=True,
+        )
     scheduler.add_job(
         _train_models_job,
         trigger=CronTrigger(hour=settings.ml_train_hour_utc, minute=0),
