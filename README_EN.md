@@ -34,6 +34,12 @@ several brands.
 Background, personas, business model canvas etc. are in the project documentation
 (not part of this repo).
 
+<br>
+<a href="https://www.buymeacoffee.com/thoralf.brandt" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
+</a>
+<br>
+
 ## HowTo: SensIR with Shelly components
 
 This is the standard setup SensIR currently runs on in the households.

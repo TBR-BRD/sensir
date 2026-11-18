@@ -32,6 +32,12 @@ gemischt haben.
 Hintergrund, Personas, Business Model Canvas etc. siehe die Projekt-Doku
 (nicht Teil dieses Repos).
 
+<br>
+<a href="https://www.buymeacoffee.com/thoralf.brandt" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
+</a>
+<br>
+
 ## HowTo: SensIR mit Shelly-Komponenten
 
 Das ist der Standardaufbau, mit dem SensIR derzeit in den Haushalten läuft.
