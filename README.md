@@ -1,5 +1,7 @@
 # SensIR
 
+🇩🇪 Deutsch · [🇬🇧 English](README_EN.md)
+
 "Babyphone für Senioren ohne Bild und Ton" — Sensoren melden Alltags­aktivität
 einer älteren Person. Bleibt die erwartete Aktivität in einem Zeitfenster aus,
 werden Angehörige per Telegram alarmiert. Ein KI-Modell lernt pro Haushalt den
