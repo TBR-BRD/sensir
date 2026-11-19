@@ -19,6 +19,8 @@ services:
     restart: unless-stopped
     labels:
       - "autoheal=true"
+      # Beim Autoheal-Neustart 30 s statt 10 s auf sauberes Beenden warten.
+      - "autoheal.stop.timeout=30"
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -38,11 +40,21 @@ services:
   # an. Notwendig geworden, weil der Backend-Prozess am 2026-09-28 nach
   # einem DNS-Ausfall zwei Stunden lang still eingefroren ist, ohne dass
   # der Container das selbst gemerkt/gemeldet hätte.
+  #
+  # Fest auf den Digest des seit 2026-09-28 laufenden Images gepinnt statt
+  # :latest (wird täglich neu gebaut) - damit ändert sich bei einem Neubau
+  # nicht unbemerkt das Verhalten. Die letzte Release-Version 1.2.0 ist von
+  # 2021 und daher keine bessere Wahl.
+  # Ruhiger eingestellt nach dem Docker-Ausfall am 2026-11-19: Prüfung alle
+  # 30 s statt alle 5 s (weniger Last auf der Docker-API) und 2 Minuten Pause
+  # nach dem Start von autoheal, bevor es eingreift.
   autoheal:
-    image: willfarrell/autoheal:latest
+    image: willfarrell/autoheal@sha256:a83ba5a269ddff3bb2a9e0c59de2cfb9993c09d64a8b6584c4607ab5f6a69177
     restart: unless-stopped
     environment:
       AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: "30"
+      AUTOHEAL_START_PERIOD: "120"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
