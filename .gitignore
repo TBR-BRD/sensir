@@ -16,3 +16,6 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+# Zustand und Protokoll des NAS-Wächters (ops/nas-watchdog.sh)
+ops/watchdog-state/
